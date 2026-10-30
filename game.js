@@ -71,6 +71,8 @@ let S;
 function fresh(breed = "leghorn") {
   S = { coins: 60, day: 1, hour: 7, grid: Array(N).fill(null), hens: [], basket: [], ground: [], locked: false,
     weather: WEATHER[0], speed: 1, collection: {}, said: {}, unlocked: { leghorn: true }, premium: {}, quizI: 0, lifetime: 0 };
+  // Starter yard: a basic coop, feeder, and waterer so new players aren't overwhelmed
+  [["coop", 7], ["feeder", 13], ["waterer", 14]].forEach(([t, i]) => S.grid[i] = { type: t, lvl: 100 });
   addHen(breed, true);
 }
 function addHen(breed, free) {
@@ -324,9 +326,12 @@ function title() {
    ${["leghorn","barred"].map(k=>`<div class="row">${henSVG(k)}<div class="t"><b>${CH[k].name}</b><br>${CH[k].blurb}</div><button class="buy" onclick="start('${k}')">Adopt</button></div>`).join("")}
    <p style="font-size:12px;opacity:.7">More breeds unlock as you sell eggs. Egg laying is simulated demo data.</p></div>`);
 }
-window.start = k => { fresh(k); closeModal(); renderTools(); renderAll(); wander(); say("OK. Step one: where does a chicken... live? <i>Tip: pick the Coop tool below and tap the yard.</i>", 1); loop(); };
+window.start = k => { fresh(k); closeModal(); renderTools(); renderAll(); wander(); say("Grandma left me a coop, a feeder, and a waterer. Now what? <i>Tip: tap the feeder or waterer to refill them, and lock the coop at night.</i>", 1); loop(); };
 let timer, wtimer;
-function loop() { clearInterval(timer); if (S.speed) timer = setInterval(tick, 1400 / S.speed); clearInterval(wtimer); wtimer = setInterval(wander, 2600); }
+// Daytime hours last longer than night hours so players have time to build
+const hourMs = () => (isNight() ? 2000 : 4500) / S.speed;
+function step() { tick(); if (S.speed) timer = setTimeout(step, hourMs()); }
+function loop() { clearTimeout(timer); clearInterval(timer); if (S.speed) timer = setTimeout(step, hourMs()); clearInterval(wtimer); wtimer = setInterval(wander, 2600); }
 $("#guyArt").innerHTML = guySVG;
 
 // Demo states for screenshots: ?demo=yard|night|shop|share
