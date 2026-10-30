@@ -89,7 +89,9 @@ let S;
 function fresh(breed = "leghorn") {
   S = { coins: 60, day: 1, hour: 7, grid: Array(N).fill(null), hens: [], basket: [], ground: [], locked: false,
     weather: WEATHER[0], speed: 1, collection: {}, said: {}, unlocked: { leghorn: true }, premium: {}, quizI: 0, lifetime: 0, feed: 5, clean: 100,
-    coopLvl: 0, rooster: null, incub: [], chicks: [], hatched: 0, duds: 0 };
+    coopLvl: 0, rooster: null, incub: [], chicks: [], hatched: 0, duds: 0,
+    bugs: [], tufts: Array(N).fill(null), wormy: 0, foraged: 0 };
+  initTufts();
   // Starter yard: a basic coop, feeder, and waterer so new players aren't overwhelmed
   [["coop", 7], ["feeder", 13], ["waterer", 14]].forEach(([t, i]) => S.grid[i] = { type: t, lvl: 100 });
   addHen(breed, true);
@@ -138,29 +140,82 @@ function renderTools() {
   $("#tools").innerHTML = Object.entries(ITEMS).map(([k, v]) =>
     `<button class="tool ${tool === k ? "sel" : ""}" data-t="${k}">${ART[k] ? ART[k](false) : ""}${v.name}<small>${v.cost ? v.cost + "🪙" : "&nbsp;"}</small></button>`).join("");
 }
+/* Tiles are created once; a tile's innerHTML is only replaced when its content changes.
+   Feeder/water bars are updated in place every tick. */
+const tileCache = [];
+const TUFT_ART = [
+  `<svg viewBox="0 0 30 20"><path d="M4 20 Q6 8 9 2 M10 20 Q11 9 15 3 M16 20 Q18 10 22 4 M22 20 Q23 12 27 8" stroke="#3f8f2e" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>`,
+  `<svg viewBox="0 0 30 20"><path d="M15 20 V11" stroke="#2f7a2a" stroke-width="2"/><circle cx="11" cy="9" r="4.5" fill="#4caf50"/><circle cx="19" cy="9" r="4.5" fill="#43a047"/><circle cx="15" cy="4.5" r="4.5" fill="#66bb6a"/></svg>`,
+  `<svg viewBox="0 0 30 20"><path d="M15 20 Q14 12 15 7 M15 18 Q9 16 7 12 M15 18 Q21 16 23 13" stroke="#3f8f2e" stroke-width="2" fill="none"/><circle cx="15" cy="6" r="4.5" fill="#fdd835"/><circle cx="15" cy="6" r="1.8" fill="#f9a825"/></svg>`
+];
+function tileHTML(i) {
+  const g = S.grid[i];
+  let inner = g ? ART[g.type](g.type === "coop" && S.locked) : "";
+  const tf = S.tufts[i];
+  if (tf && (!g || g.type === "run")) { const c = i * 37 % 100; inner += `<div class="tuft l${Math.ceil(tf.life)}" style="left:${10 + c % 50}%;top:${55 + c % 25}%">${TUFT_ART[tf.k]}</div>`; }
+  if (g && g.type === "coop") inner += `<div class="badge">Lv${S.coopLvl + 1}</div>`;
+  if (g && g.type === "incubator" && (S.incub.length || S.chicks.length)) inner += `<div class="badge">${S.chicks.length ? "🐣" + S.chicks.length : "🥚" + S.incub.length}</div>`;
+  if (g && g.type === "coop" && S.locked && S.hens.length) inner += `<div style="position:absolute;top:-4px;right:2px;font-size:15px">💤</div>`;
+  if (g && g.type === "feeder") inner += `<div class="lvl feed"><i></i></div>`;
+  if (g && g.type === "waterer") inner += `<div class="lvl"><i></i></div>`;
+  let n = 0; S.ground.forEach((e, k) => { if (e.tile === i) inner += `<div class="egg-drop" style="margin-left:${12 * n++}%" data-egg="${k}">${eggSVG(e.color, CH[e.breed].speckled)}</div>`; });
+  return inner;
+}
 function renderGrid() {
-  $("#grid").innerHTML = S.grid.map((g, i) => {
-    let inner = g ? ART[g.type](g.type === "coop" && S.locked) : "";
-    if (g && g.type === "coop") inner += `<div class="badge">Lv${S.coopLvl + 1}</div>`;
-    if (g && g.type === "incubator" && (S.incub.length || S.chicks.length)) inner += `<div class="badge">${S.chicks.length ? "🐣" + S.chicks.length : "🥚" + S.incub.length}</div>`;
-    if (g && g.type === "coop" && S.locked && S.hens.length) inner += `<div style="position:absolute;top:-4px;right:2px;font-size:15px">💤</div>`;
-    if (g && g.type === "feeder") inner += `<div class="lvl feed"><i style="width:${g.lvl}%"></i></div>`;
-    if (g && g.type === "waterer") inner += `<div class="lvl"><i style="width:${g.lvl}%"></i></div>`;
-    S.ground.filter(e => e.tile === i).forEach((e, k) => inner += `<div class="egg-drop" style="margin-left:${k*12}%" data-egg="${S.ground.indexOf(e)}">${eggSVG(e.color, CH[e.breed].speckled)}</div>`);
-    return `<div class="tile" data-i="${i}">${inner}</div>`;
-  }).join("");
+  const grid = $("#grid");
+  if (grid.children.length !== N) { grid.innerHTML = Array.from({ length: N }, (_, i) => `<div class="tile" data-i="${i}"></div>`).join(""); tileCache.length = 0; }
+  for (let i = 0; i < N; i++) {
+    const t = grid.children[i], html = tileHTML(i);
+    if (tileCache[i] !== html) { t.innerHTML = html; tileCache[i] = html; }
+    const g = S.grid[i];
+    if (g && (g.type === "feeder" || g.type === "waterer")) { const bar = t.querySelector(".lvl i"), w = Math.round(g.lvl) + "%"; if (bar && bar.style.width !== w) bar.style.width = w; }
+  }
 }
+/* Hens: one element per bird, created once and moved with GPU transforms. */
+const henEls = new Map();
+let yardW = 0, yardH = 0;
+function measureYard() { const el = $("#hens"); yardW = el.clientWidth; yardH = el.clientHeight; }
+const xf = (x, y) => `translate3d(${(x * yardW / 100).toFixed(1)}px,${(y * yardH / 100).toFixed(1)}px,0)`;
+function birdEl(key, svg, attrs) {
+  let el = henEls.get(key);
+  if (!el) {
+    el = document.createElement("div"); el.className = "hen" + (key.startsWith("roo") ? " roo" : "");
+    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+    el.innerHTML = `<span class="mood"></span><div class="flipper"><div class="bob" style="animation-delay:-${(Math.random() * 2.4).toFixed(2)}s">${svg}</div></div>`;
+    el.style.transition = "none"; henEls.set(key, el); $("#hens").appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.style.transition = ""));
+  }
+  return el;
+}
+function placeBird(el, b, mood, inside) {
+  const t = xf(b.x, b.y); if (el._t !== t) { el.style.transform = t; el._t = t; }
+  el.classList.toggle("flip", !!b.flip); el.classList.toggle("inside", inside);
+  if (mood !== undefined) { const m = el.firstChild; if (m.textContent !== mood) m.textContent = mood; }
+}
+let henbarSig = "";
 function renderHens() {
-  const roo = S.rooster && !(S.locked && has("coop")) ? `<div class="hen roo ${S.rooster.flip ? "flip" : ""}" data-roo="1" style="left:${S.rooster.x}%;top:${S.rooster.y}%">${rooSVG()}</div>` : "";
-  $("#hens").innerHTML = roo + S.hens.map(h => {
+  if (!yardW) measureYard();
+  const inside = S.locked && has("coop"), keep = new Set();
+  if (S.rooster) { const key = "roo:" + S.rooster.breed; keep.add(key); placeBird(birdEl(key, rooSVG(), { "data-roo": "1" }), S.rooster, undefined, inside); }
+  S.hens.forEach(h => {
+    const key = "h" + h.id; keep.add(key);
     const mood = h.health < 35 ? "🤒" : h.happy < 35 ? "😤" : h.happy > 75 ? "💛" : "";
-    const inside = S.locked && has("coop");
-    return `<div class="hen ${h.flip ? "flip" : ""}" data-h="${h.id}" style="${inside ? "opacity:0;pointer-events:none;" : ""}left:${h.x}%;top:${h.y}%"><span class="mood">${mood}</span>${henSVG(h.breed)}</div>`;
-  }).join("");
-  $("#henbar").innerHTML = (S.hens.map(h => `<div class="hencard" data-card="${h.id}">${henSVG(h.breed)}<div><b>${h.name}</b> <span style="opacity:.6">${breedLabel(h)}</span>${isOld(h) ? ` <span class="old">older</span>` : ""}
-   <div class="bar"><i style="width:${h.health}%;background:#e57373"></i></div><div class="bar"><i style="width:${h.happy}%;background:#ffca28"></i></div></div></div>`).join("") || `<div class="hencard">No hens yet. Visit the 🛒 Shop!</div>`)
-   + (S.rooster ? `<div class="hencard" data-card="roo">${rooSVG()}<div><b>${S.rooster.name}</b> <span style="opacity:.6">${ROOS[S.rooster.breed].name}</span></div></div>` : "");
+    placeBird(birdEl(key, henSVG(h.breed), { "data-h": h.id }), h, mood, inside);
+  });
+  henEls.forEach((el, k) => { if (!keep.has(k)) { el.remove(); henEls.delete(k); } });
+  // Hen bar: rebuild only when the list or labels change; otherwise update bars in place
+  const sig = S.hens.map(h => h.id + h.name + breedLabel(h) + isOld(h)).join("|") + (S.rooster ? "R" + S.rooster.breed + S.rooster.name : "");
+  const bar = $("#henbar");
+  if (sig !== henbarSig) {
+    henbarSig = sig;
+    bar.innerHTML = (S.hens.map(h => `<div class="hencard" data-card="${h.id}">${henSVG(h.breed)}<div><b>${h.name}</b> <span style="opacity:.6">${breedLabel(h)}</span>${isOld(h) ? ` <span class="old">older</span>` : ""}
+   <div class="bar"><i style="background:#e57373"></i></div><div class="bar"><i style="background:#ffca28"></i></div></div></div>`).join("") || `<div class="hencard">No hens yet. Visit the 🛒 Shop!</div>`)
+     + (S.rooster ? `<div class="hencard" data-card="roo">${rooSVG()}<div><b>${S.rooster.name}</b> <span style="opacity:.6">${ROOS[S.rooster.breed].name}</span></div></div>` : "");
+  }
+  S.hens.forEach((h, k) => { const c = bar.children[k]; if (!c) return; const [a, b] = c.querySelectorAll(".bar i");
+    const w1 = Math.round(h.health) + "%", w2 = Math.round(h.happy) + "%"; if (a.style.width !== w1) a.style.width = w1; if (b.style.width !== w2) b.style.width = w2; });
 }
+if (window.ResizeObserver) new ResizeObserver(() => { measureYard(); henEls.forEach(el => el._t = ""); S && renderHens(); renderForage(); }).observe($("#hens"));
 function renderHUD() {
   $("#coins").textContent = S.coins; $("#day").textContent = S.day;
   $("#clock").textContent = `${(S.hour % 12) || 12}:00 ${S.hour < 12 ? "am" : "pm"}`;
@@ -172,35 +227,108 @@ function renderHUD() {
   $("#cleanStat").classList.toggle("warn", S.clean < 30); $("#feedStat").classList.toggle("warn", S.feed < 2);
   const lb = $("#lockBtn"); lb.textContent = S.locked ? "🔒 Locked" : "🔓 Coop open"; lb.classList.toggle("locked", S.locked);
   $("#speedBtn").textContent = S.speed ? `▶︎ ${S.speed}x` : "⏸ Paused";
-  $("#night").style.opacity = isNight() ? 0.75 : (S.hour === 6 || S.hour === 19) ? 0.3 : 0;
-  $("#sky").innerHTML = S.weather[1] === "Rain" ? `<div class="rain"></div>` : "";
+  const nl = String(NIGHT_RAMP[S.hour]), ng = $("#night");
+  if (ng.style.opacity !== nl) { if (!ng._init) { ng._init = 1; ng.style.transition = "none"; requestAnimationFrame(() => requestAnimationFrame(() => ng.style.transition = "")); } ng.style.opacity = nl; }
+  const rain = S.weather[1] === "Rain"; if (!!$("#sky").firstChild !== rain) $("#sky").innerHTML = rain ? `<div class="rain"></div>` : "";
 }
-function renderAll() { renderHUD(); renderGrid(); renderHens(); }
+// Gradual dusk and dawn (opacity of the night overlay by hour; CSS transitions between them)
+const NIGHT_RAMP = [.62,.62,.62,.62,.6,.5,.3,.12,0,0,0,0,0,0,0,0,0,0,.06,.18,.4,.55,.6,.62];
+function renderAll() { renderHUD(); renderGrid(); renderHens(); renderForage(); }
 
 /* ---------- HEN MOVEMENT ---------- */
 function tilePos(i) { return { x: (i % COLS) / COLS * 100 + 1, y: Math.floor(i / COLS) / ROWS * 100 + 1 }; }
-function wander() {
+function pickSpot(h) {
   const coop = tilesOf("coop")[0];
+  let p;
+  if ((isNight() || S.locked) && coop !== undefined) { p = tilePos(coop); p.x += Math.random() * 6; p.y += Math.random() * 4; return p; }
   const runs = tilesOf("run");
-  const move = h => {
-    let p;
-    if ((isNight() || S.locked) && coop !== undefined) p = tilePos(coop), p.x += Math.random() * 6, p.y += Math.random() * 4;
-    else {
-      const spots = runs.length && Math.random() < 0.7 ? runs : [...Array(N).keys()].filter(i => !S.grid[i] || S.grid[i].type === "run");
-      p = tilePos(rnd(spots)); p.x += Math.random() * 4; p.y += Math.random() * 4;
-    }
-    h.flip = p.x < h.x; h.x = p.x; h.y = p.y;
-  };
-  S.hens.forEach(move); if (S.rooster) move(S.rooster);
-  renderHens();
+  const spots = runs.length && Math.random() < 0.7 ? runs : [...Array(N).keys()].filter(i => !S.grid[i] || S.grid[i].type === "run");
+  p = tilePos(rnd(spots)); p.x += Math.random() * 4; p.y += Math.random() * 4; return p;
+}
+function moveBird(h) {
+  if (h.busy) return;
+  const outside = !isNight() && !S.locked;
+  if (outside && h.breed && tryForage(h)) return;
+  const p = pickSpot(h); h.flip = p.x < h.x; h.x = p.x; h.y = p.y;
+}
+// Move every bird at once (used after building, locking, starting)
+function wander() { S.hens.forEach(h => { h.busy = false; moveBird(h); }); if (S.rooster) moveBird(S.rooster); renderHens(); }
+// Each bird schedules its own next move at a random 1.5-4s interval, so they don't all move together
+function wanderTick() {
+  const now = performance.now(); let moved = false;
+  [...S.hens, ...(S.rooster ? [S.rooster] : [])].forEach(b => { if (!b.next || now >= b.next) { moveBird(b); b.next = now + 1500 + Math.random() * 2500; moved = true; } });
+  if (moved) renderHens();
+}
+
+/* ---------- FORAGE (bugs, worms, greens) ---------- */
+const BUGS = { beetle: "🪲", cricket: "🦗", worm: "🪱", fly: "🪰", butterfly: "🦋" };
+const BUG_CAP = 10;
+const forageEls = new Map();
+let bugId = 0;
+function initTufts() {
+  for (let i = 0; i < N; i++) { const r = Math.random(); S.tufts[i] = r < 0.42 ? { k: r < 0.24 ? 0 : r < 0.34 ? 1 : 2, life: 3 } : null; }
+}
+function openTiles() { return [...Array(N).keys()].filter(i => !S.grid[i] || S.grid[i].type === "run"); }
+function spawnBug(kind) {
+  if (S.bugs.length >= BUG_CAP) return;
+  const tiles = openTiles(); if (!tiles.length) return;
+  const tile = rnd(tiles);
+  if (!kind) { const worm = S.wormy ? 0.45 : 0.12; const r = Math.random(); kind = r < worm ? "worm" : r < worm + 0.3 ? "beetle" : r < worm + 0.6 ? "cricket" : r < 0.93 ? "fly" : "butterfly"; }
+  S.bugs.push({ id: ++bugId, kind, tile, born: S.hour, x: ((tile % COLS) + 0.15 + Math.random() * 0.6) / COLS * 100, y: (Math.floor(tile / COLS) + 0.2 + Math.random() * 0.55) / ROWS * 100 });
+}
+function forageHour() {
+  if (isNight()) { if (S.bugs.length) S.bugs = []; return; }
+  S.bugs = S.bugs.filter(b => (S.hour - b.born + 24) % 24 < 6 && !(S.grid[b.tile] && S.grid[b.tile].type !== "run"));
+  const n = S.wormy ? 3 : 2; for (let k = 0; k < n; k++) if (Math.random() < 0.75) spawnBug();
+}
+function renderForage() {
+  const layer = $("#forage"); if (!layer || !S) return;
+  const keep = new Set();
+  S.bugs.forEach(b => {
+    keep.add(b.id); if (forageEls.has(b.id)) return;
+    const el = document.createElement("div"); el.className = "bug " + b.kind; el.style.left = b.x + "%"; el.style.top = b.y + "%";
+    el.innerHTML = `<span style="animation-delay:-${(Math.random() * 2).toFixed(2)}s">${BUGS[b.kind]}</span>`; layer.appendChild(el); forageEls.set(b.id, el);
+  });
+  forageEls.forEach((el, id) => { if (!keep.has(id)) { forageEls.delete(id); el.classList.add("gone"); setTimeout(() => el.remove(), 350); } });
+}
+function tryForage(h) {
+  const free = S.bugs.filter(b => !b.claimed && b.kind !== "butterfly");
+  if (!free.length) return false;
+  free.sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y));
+  const bug = free[0], inRun = S.grid[bug.tile] && S.grid[bug.tile].type === "run";
+  if (Math.hypot(bug.x - h.x, bug.y - h.y) > (inRun ? 45 : 30) || Math.random() > (inRun ? 0.8 : 0.45)) return false;
+  bug.claimed = 1; h.busy = true;
+  h.flip = bug.x < h.x; h.x = h.flip ? bug.x - 2 : bug.x - 12; h.y = bug.y - 8;
+  setTimeout(() => peck(h, bug), 2300);
+  return true;
+}
+function peck(h, bug) {
+  h.busy = false;
+  if (!S.hens.includes(h) || !S.bugs.includes(bug) || isNight() || S.locked) { bug.claimed = 0; return; }
+  const el = henEls.get("h" + h.id); if (el) { const bob = el.querySelector(".bob"); bob.classList.remove("pecking"); void bob.offsetWidth; bob.classList.add("pecking"); }
+  setTimeout(() => {
+    if (!S.bugs.includes(bug)) return;
+    S.bugs = S.bugs.filter(b => b !== bug); S.foraged++;
+    h.happy = Math.min(100, h.happy + 3);
+    const f = tilesOf("feeder").map(i => S.grid[i]).find(g => g.lvl > 0); if (f) f.lvl = Math.min(100, f.lvl + 2);
+    floatXY(bug.x, bug.y, "+😊");
+    sayOnce("forage", `${h.name} just ate a ${bug.kind === "worm" ? "worm" : "bug"}. Like, on purpose. Gross. Also kind of impressive. <i>Tip: free-ranging hens eat insects, worms, and greens, which adds protein. They still need layer feed every day.</i>`, 1);
+    if (S.tufts[bug.tile] && S.grid[bug.tile] && S.grid[bug.tile].type === "run") S.tufts[bug.tile].life -= 0.5;
+    renderForage(); renderGrid();
+  }, 500);
+}
+function floatXY(x, y, text) {
+  const el = document.createElement("div"); el.className = "float small"; el.textContent = text; el.style.left = x + "%"; el.style.top = y + "%";
+  $("#fx").appendChild(el); setTimeout(() => el.remove(), 1300);
 }
 
 /* ---------- SIMULATION ---------- */
 function predator(emoji, i, msg) {
   const el = document.createElement("div"); el.className = "predator"; el.textContent = emoji;
-  const p = tilePos(i ?? 0); el.style.left = "-15%"; el.style.top = p.y + "%";
-  $("#fx").appendChild(el); requestAnimationFrame(() => { el.style.left = p.x + "%"; });
-  setTimeout(() => { el.style.left = "110%"; }, 1700); setTimeout(() => el.remove(), 3300);
+  const p = tilePos(i ?? 0), W = $("#fx").clientWidth; el.style.top = p.y + "%";
+  const at = x => el.style.transform = `translate3d(${x * W / 100}px,0,0)`; at(-15);
+  $("#fx").appendChild(el); requestAnimationFrame(() => requestAnimationFrame(() => at(p.x)));
+  setTimeout(() => at(110), 1700); setTimeout(() => el.remove(), 3300);
   toast(msg);
 }
 function hurt(h, n) { h.health = Math.max(0, h.health - n); h.happy = Math.max(0, h.happy - n / 2); }
@@ -227,6 +355,7 @@ function tick() {
     h.happy = Math.max(0, Math.min(100, h.happy + d));
     h.health = Math.max(0, Math.min(100, h.health));
   });
+  forageHour();
   if (S.hour === 8) layEggs();
   if (S.hour === 13) hawkCheck();
   if (S.hour === 20 && !S.locked) say(has("coop") ? "The hens just... went to bed by themselves? At 8pm? Icons. <i>Tip: lock the coop at night!</i>" : "It's dark and my hens have nowhere to sleep. <i>Tip: build a coop.</i>", 1);
@@ -245,6 +374,13 @@ function newDay() {
   if (has("coop")) S.clean = Math.max(0, S.clean - 6 * COOPS[S.coopLvl].dirt * Math.max(1, S.hens.length));
   S.hens.forEach(h => { h.age = (h.age || 0) + 1; if (h.age === OLD_AGE) sayOnce("old" + h.id, `${h.name} is slowing down on eggs. Is she... retiring? <i>Tip: hens lay best in their first couple of years, then lay fewer eggs each year.</i>`, 1); });
   incubateDay();
+  // Run areas wear down to bare dirt; open grass slowly regrows weeds and clover
+  S.wormy = S.weather[1] === "Rain" ? 2 : Math.max(0, S.wormy - 1);
+  for (let i = 0; i < N; i++) { const g = S.grid[i], t = S.tufts[i];
+    if (g && g.type === "run" && t && S.hens.length) { t.life -= 0.5; if (t.life <= 0) S.tufts[i] = null; }
+    else if (!g && !t && Math.random() < 0.08) S.tufts[i] = { k: Math.floor(Math.random() * 3), life: 1 };
+    else if (!g && t && t.life < 3) t.life = Math.min(3, t.life + 1); }
+  if (S.wormy === 2) sayOnce("worms", "Worms everywhere after the rain! The hens are thrilled. I am not. <i>Tip: rain brings earthworms to the surface, a favorite chicken snack.</i>", 1);
   if (S.feed < 2) sayOnce("lowfeed" + S.day, "The feed bag is almost empty. <i>Tip: buy a bag of layer feed in the Shop before it runs out.</i>", 1);
   if (S.weather[1] === "Cold") sayOnce("cold", "It's freezing! Do chickens wear sweaters? <i>Tip: a draft-free coop keeps hens warm. No sweaters needed.</i>", 1);
 }
@@ -297,7 +433,7 @@ $("#grid").addEventListener("click", e => {
   const it = ITEMS[tool];
   if (it.max && tilesOf(tool).length >= it.max) return toast(`One ${it.name.toLowerCase()} is plenty for now`);
   if (S.coins < it.cost) return toast("Not enough coins. Sell some eggs!");
-  S.coins -= it.cost; S.grid[i] = { type: tool, lvl: 100 }; floatAt(i, `-${it.cost}🪙`);
+  S.coins -= it.cost; S.grid[i] = { type: tool, lvl: 100 }; floatAt(i, `-${it.cost}🪙`); if (tool !== "run") S.bugs = S.bugs.filter(b => b.tile !== i);
   if (!S.said["built_" + tool]) { S.said["built_" + tool] = 1; say(`${it.joke} <i>${it.tip}</i>`, 1); }
   renderAll(); wander();
 });
@@ -482,7 +618,7 @@ let timer, wtimer;
 // Daytime hours last longer than night hours so players have time to build
 const hourMs = () => (isNight() ? 2000 : 4500) / S.speed;
 function step() { tick(); if (S.speed) timer = setTimeout(step, hourMs()); }
-function loop() { clearTimeout(timer); clearInterval(timer); if (S.speed) timer = setTimeout(step, hourMs()); clearInterval(wtimer); wtimer = setInterval(wander, 2600); }
+function loop() { clearTimeout(timer); clearInterval(timer); if (S.speed) timer = setTimeout(step, hourMs()); clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
 $("#guyArt").innerHTML = guySVG;
 
 // Demo states for screenshots: ?demo=yard|night|shop|hensshop|coopshop|henmodal|incubator|share|title
@@ -500,9 +636,10 @@ else {
   S.collection = { white: 5, brown: 3, cream: 1, chocolate: 2 }; S.basket = [{color:"white"},{color:"white"},{color:"cream"},{color:"chocolate"}]; S.lifetime = 11;
   S.hour = 9; S.hens.forEach((h, k) => { const p = tilePos([19,20,26,27][k]); h.x = p.x + 2; h.y = p.y; h.flip = k % 2; });
   S.hens[3].happy = 90; S.hens[2].happy = 30; S.coopLvl = 1;
+  ["beetle", "cricket", "worm", "worm", "fly", "butterfly", "beetle"].forEach(k => spawnBug(k));
   S.hens.forEach((h, k) => h.age = [12, 6, 23, 3][k]);
   say("WAIT. We got eggs but I don't have a rooster?! <i>Fact: hens lay eggs without a rooster. Roosters only matter if you want chicks.</i>", 1);
-  if (demo === "night") { S.hour = 23; S.locked = true; S.weather = WEATHER[4]; S.ground = []; S.hens.forEach(h => { const p = tilePos(7); h.x = p.x + Math.random()*6; h.y = p.y + Math.random()*4; });
+  if (demo === "night") { S.hour = 23; S.locked = true; S.bugs = []; S.weather = WEATHER[4]; S.ground = []; S.hens.forEach(h => { const p = tilePos(7); h.x = p.x + Math.random()*6; h.y = p.y + Math.random()*4; });
     say("Ha! The raccoon rattled the door and left. Locking up works! <i>Tip: raccoons hunt at night, so lock the coop every evening.</i>", 1); }
   renderAll();
   if (demo === "night") { const el = document.createElement("div"); el.className = "predator"; el.textContent = "🦝"; const p = tilePos(13); el.style.left = p.x + "%"; el.style.top = p.y + "%"; $("#fx").appendChild(el); toast("A raccoon tried the coop door. Locked. Nice!"); }
