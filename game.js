@@ -166,7 +166,7 @@ window.plotModal = plotModal;
 
 // Pan / pinch-zoom on the world container: transform only, rAF-driven, momentum and soft edges
 const pan = { x: 0, y: 0, z: 1, vx: 0, vy: 0, drag: false, goto: null, t: "" };
-const ptrs = new Map(); let downAt = null, suppressClick = false, pinch0 = null;
+const ptrs = new Map(); let downAt = null, pinch0 = null;
 const worldW = () => yardW * COLS / VC, worldH = () => yardH * ROWS / VR;
 function panBounds() { return { mx: Math.max(0, worldW() * pan.z - yardW), my: Math.max(0, worldH() * pan.z - yardH) }; }
 function panTo(ux, uy) { const b = panBounds(); pan.goto = { x: Math.min(b.mx, Math.max(0, ux * yardW / 100 * pan.z - yardW / 2)), y: Math.min(b.my, Math.max(0, uy * yardH / 100 * pan.z - yardH / 2)) }; pan.vx = pan.vy = 0; }
@@ -185,24 +185,59 @@ function stepPan(dt) {
   if (t !== pan.t) { pan.t = t; $("#world").style.transform = t; const mv = $("#miniView");
     if (mv) mv.style.transform = `translate3d(${(pan.x / (worldW() * pan.z) * 54).toFixed(1)}px,${(pan.y / (worldH() * pan.z) * 54).toFixed(1)}px,0) scale(${(yardW / (worldW() * pan.z)).toFixed(3)},${(yardH / (worldH() * pan.z)).toFixed(3)})`; }
 }
+// Touch input for the world. Build 7 relied on the browser's synthesized "click" after a pointer gesture and
+// treated any wiggle over 8px as a drag (which silently ate the tap). Build 8 detects taps itself from pointer
+// events: under 14px of movement (or under 24px within 300ms) is a tap, and we hit-test with elementsFromPoint
+// using a fat-finger search, so it doesn't depend on Safari's click heuristics.
+const TAP_SLOP = 14, TAP_QUICK = 24, TAP_QUICK_MS = 300;
 function initPan() {
   const vp = $("#grid-wrap");
-  vp.addEventListener("pointerdown", e => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (ptrs.size === 1) downAt = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y, t: performance.now(), lx: e.clientX, ly: e.clientY, lt: performance.now() };
-    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = { d: Math.hypot(a.x - b.x, a.y - b.y), z: pan.z, px: pan.x, py: pan.y, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; pan.drag = true; } });
+  vp.addEventListener("pointerdown", e => { if (e.button > 0 || e.target.closest("#recenter")) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const fling = Math.hypot(pan.vx, pan.vy) > 260; pan.vx = 0; pan.vy = 0; pan.goto = null;
+    if (ptrs.size === 1) downAt = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y, t: performance.now(), lx: e.clientX, ly: e.clientY, lt: performance.now(), max: 0, fling, multi: false };
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = { d: Math.hypot(a.x - b.x, a.y - b.y), z: pan.z, px: pan.x, py: pan.y, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; pan.drag = true; if (downAt) downAt.multi = true; } });
   window.addEventListener("pointermove", e => { if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (ptrs.size === 2 && pinch0) { const [a, b] = [...ptrs.values()], r = vp.getBoundingClientRect(); const z = Math.min(1.4, Math.max(0.5, pinch0.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch0.d));
-      const mx = pinch0.mx - r.left, my = pinch0.my - r.top; pan.x = (pinch0.px + mx) * z / pinch0.z - mx; pan.y = (pinch0.py + my) * z / pinch0.z - my; pan.z = z; suppressClick = true; return; }
-    if (!downAt) return; const dx = e.clientX - downAt.x, dy = e.clientY - downAt.y;
-    if (!pan.drag && Math.hypot(dx, dy) > 8) { pan.drag = true; pan.goto = null; suppressClick = true; }
+      const mx = pinch0.mx - r.left, my = pinch0.my - r.top; pan.x = (pinch0.px + mx) * z / pinch0.z - mx; pan.y = (pinch0.py + my) * z / pinch0.z - my; pan.z = z; return; }
+    if (!downAt) return; downAt.max = Math.max(downAt.max, Math.hypot(e.clientX - downAt.sx, e.clientY - downAt.sy));
+    if (!pan.drag && downAt.max > TAP_SLOP && !(downAt.max <= TAP_QUICK && performance.now() - downAt.t < 120)) { pan.drag = true; downAt.x = e.clientX; downAt.y = e.clientY; downAt.px = pan.x; downAt.py = pan.y; }
+    const dx = e.clientX - downAt.x, dy = e.clientY - downAt.y;
     if (pan.drag) { const b = panBounds(); let x = downAt.px - dx, y = downAt.py - dy;
       if (x < 0) x /= 3; if (x > b.mx) x = b.mx + (x - b.mx) / 3; if (y < 0) y /= 3; if (y > b.my) y = b.my + (y - b.my) / 3; pan.x = x; pan.y = y;
       const now = performance.now(), ddt = Math.max(1, now - downAt.lt) / 1000; pan.vx = 0.8 * (-(e.clientX - downAt.lx) / ddt) + 0.2 * pan.vx; pan.vy = 0.8 * (-(e.clientY - downAt.ly) / ddt) + 0.2 * pan.vy; downAt.lx = e.clientX; downAt.ly = e.clientY; downAt.lt = now; } });
   const up = e => { if (!ptrs.delete(e.pointerId)) return; if (ptrs.size < 2) pinch0 = null;
-    if (!ptrs.size) { if (downAt && performance.now() - downAt.lt > 80) { pan.vx = 0; pan.vy = 0; } pan.drag = false; downAt = null; setTimeout(() => suppressClick = false, 0); } };
+    if (ptrs.size) return;
+    const d = downAt, dur = d ? performance.now() - d.t : 1e9;
+    const isTap = d && e.type === "pointerup" && !d.multi && !d.fling && !pan.drag && (d.max <= TAP_SLOP ? dur < 800 : d.max <= TAP_QUICK && dur < TAP_QUICK_MS);
+    if (d && pan.drag && performance.now() - d.lt > 80) { pan.vx = 0; pan.vy = 0; }
+    pan.drag = false; downAt = null;
+    if (isTap) { lastTapAt = performance.now(); worldTap(d.sx, d.sy); } };
   window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
-  vp.addEventListener("click", e => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false; } }, true);
+  // We handle world taps ourselves; swallow the browser's synthesized clicks inside the world so nothing fires twice.
+  vp.addEventListener("click", e => { if (e.target.closest("#world")) { e.stopPropagation(); e.preventDefault(); } }, true);
+  vp.addEventListener("contextmenu", e => e.preventDefault());
 }
+let lastTapAt = 0;
+const TAP_RING = [[0, 0], [0, -9], [9, 0], [-9, 0], [0, 9], [7, -7], [-7, -7], [7, 7], [-7, 7], [0, -16], [15, 0], [-15, 0], [0, 15]];
+function worldTap(x, y) {
+  if (!S || !S.started && !demoMode) return;
+  const at = (dx, dy) => document.elementsFromPoint(x + dx, y + dy);
+  const find = (els, sel) => { for (const el of els) { const m = el.closest && el.closest(sel); if (m) return m; } return null; };
+  // 1) predators and eggs win, with a generous fat-finger ring (~16px)
+  for (const [dx, dy] of TAP_RING) { const els = at(dx, dy);
+    const th = find(els, ".threat.tappable"); if (th) { th._tap && th._tap(); return; }
+    const eg = find(els, "[data-egg]"); if (eg) { tapFX(eg.closest(".tile")); return collect(+eg.dataset.egg); } }
+  const els = at(0, 0), tile = find(els, ".tile"), g = tile && S.grid[+tile.dataset.i];
+  const eq = g && (g.type === "annex" ? S.grid[g.of] : g);
+  // 2) with the hand tool, feeders/waterers that need a refill beat a hen standing in front of them
+  if (tool === "hand" && eq && (eq.type === "feeder" || eq.type === "waterer") && eq.lvl < 95) return tileTap(tile);
+  // 3) hens (painted shape, then a small ring when the hand tool has nothing else to do there)
+  let hen = find(els, ".hen"); if (hen) return henTap(hen);
+  if (tool === "hand" && (!eq || eq.type === "run" || eq.type === "fence")) for (const [dx, dy] of TAP_RING.slice(1, 9)) { hen = find(at(dx, dy), ".hen"); if (hen) return henTap(hen); }
+  // 4) tiles, signs, equipment
+  if (tile) return tileTap(find(els, "[data-plot]") || tile);
+}
+function tapFX(t) { if (!t) return; t.classList.remove("tapped"); void t.offsetWidth; t.classList.add("tapped"); clearTimeout(t._tt); t._tt = setTimeout(() => t.classList.remove("tapped"), 420); }
 function renderMini() { const m = $("#mini"); if (!m) return; const sig = S.land.join();
   if (m._s === sig) return; m._s = sig;
   m.innerHTML = Object.entries(PLOTS).map(([k, [x, y, w, h]]) => `<i class="${S.land.includes(k) ? "own" : ""}" style="left:${x / COLS * 100}%;top:${y / ROWS * 100}%;width:${w / COLS * 100}%;height:${h / ROWS * 100}%"></i>`).join("") + `<b id="miniView"></b>`; pan.t = ""; }
@@ -247,7 +282,11 @@ const isNight = () => S.hour >= 20 || S.hour < 6;
 let bubbleTimer;
 function say(text, tip) { $("#bubbleText").innerHTML = text; $("#bubble").classList.toggle("tip", !!tip); }
 function sayOnce(key, text, tip) { if (S.said[key]) return; S.said[key] = 1; say(text, tip); }
-function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), 2200); }
+// toasts queue briefly so a quest/badge toast doesn't instantly hide "Feeder filled!"
+const toastQ = []; let toastBusy = 0;
+function toast(t, now) { if (now) { toastQ.unshift(t); toastBusy = 0; return toastNext(); } if (toastQ.length > 3) toastQ.shift(); toastQ.push(t); if (!toastBusy) toastNext(); }
+function toastNext() { const el = $("#toast"), t = toastQ.shift(); if (t == null) { toastBusy = 0; return; } toastBusy = 1;
+  el.textContent = t; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), 2200); clearTimeout(toastNext._t); toastNext._t = setTimeout(toastNext, 1300); }
 function floatAt(i, text) {
   const el = document.createElement("div"); el.className = "float"; el.textContent = text;
   const p = tilePos(i); el.style.left = ux(p.x + 2); el.style.top = uy(p.y - 1);
@@ -567,7 +606,7 @@ function tick() {
   if (S.hour === 14 && S.day === 1 && !S.rooster && !S.said.rooOffer) offerRooster();
   threatHour();
   if (S.hour === 20 && !S.locked) say(has("coop") ? "The hens just... went to bed by themselves? At 8pm? Icons. <i>Tip: lock the coop at night!</i>" : "It's dark and my hens have nowhere to sleep. <i>Tip: build a coop.</i>", 1);
-  if (S.hour === 5 && S.rooster) { if (!S.said.crow) { S.said.crow = 1; say(`${S.rooster.name} just screamed at 5am. Is he okay?? I guess my alarm clock is a bird now. <i>Tip: roosters crow at dawn (and whenever they feel like it). Hens lay without a rooster, but you need one for fertile eggs that hatch into chicks.</i>`, 1); } else toast(`🐓 ${S.rooster.name}: COCK-A-DOODLE-DOO!`); }
+  if (S.hour === 5 && S.rooster) { sfx("crow"); if (!S.said.crow) { S.said.crow = 1; say(`${S.rooster.name} just screamed at 5am. Is he okay?? I guess my alarm clock is a bird now. <i>Tip: roosters crow at dawn (and whenever they feel like it). Hens lay without a rooster, but you need one for fertile eggs that hatch into chicks.</i>`, 1); } else toast(`🐓 ${S.rooster.name}: COCK-A-DOODLE-DOO!`); }
   if (S.hour === 6 && S.locked) say("Morning! Time to unlock the coop and let the ladies out.", 1);
   renderAll(); save();
 }
@@ -575,7 +614,7 @@ function offerRooster() { if (!$("#modal").classList.contains("hidden")) return;
   modal(`<h2>🐓 A neighborly offer</h2><div style="width:90px;margin:0 auto">${henSVG("roo:barnyard")}</div><p>Neighbor Deb saw that hawk earlier. "Take Rocky," she says. "He's loud, but he watches the sky."</p>
    <p style="font-size:13px"><i>Tip: a rooster watches for danger and sounds an alarm call so hens run for cover. ${ROO_FACT}</i></p>
    <button class="buy big" onclick="takeRocky()">Take Rocky (free!)</button><button class="act big" onclick="closeModal()">No thanks</button>`); }
-window.takeRocky = () => { S.rooster = { name: "Rocky", breed: "barnyard", x: 45, y: 45, flip: false }; closeModal(); toast("Welcome, Rocky the Barnyard rooster!");
+window.takeRocky = () => { sfx("crow"); S.rooster = { name: "Rocky", breed: "barnyard", x: 45, y: 45, flip: false }; closeModal(); toast("Welcome, Rocky the Barnyard rooster!");
   say("I own a rooster now. He looked me in the eye and I blinked first. <i>Tip: roosters protect the flock, and from now on your eggs are fertile, so you can hatch chicks.</i>", 1); renderAll(); wander(); };
 function newDay() {
   S.day++; S.weather = WEATHER[rnd(SEASON_WX[season()[1]])];
@@ -614,13 +653,117 @@ function layEggs() {
 }
 const mornBonus = () => 5 + Math.min(10, Math.floor(S.stats.safeNights / 2)) + (HOL && HOL.k === "thanks" ? 5 : 0);
 /* ---------- PROGRESSION: coins pop, XP + farm level, goals, daily quests, events, streaks ---------- */
+/* ---------- AUDIO: original procedural "Coop City Hoedown" + farm SFX (Web Audio, no files) ----------
+   Key of G major, 116 BPM swung eighths. Form per loop: A A' B A C C (C = chorus with the "buk-buk-buk... BAWK" cluck hook).
+   Variation: loop 2 swaps lead to banjo, loop 3 modulates up to A major, loop 4 uses a whistle lead.
+   Night: the same hook as a slow music-box lullaby (72 BPM), crossfaded with the day/night cycle. */
 let soundOn = false; try { soundOn = localStorage.getItem("coopcity-sound") === "1"; } catch (e) {}
-let actx;
-function beep(kind) { if (!soundOn) return; try { actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-  const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime, f = { coin: [880, 1320], lvl: [523, 1046], warn: [300, 220], good: [660, 990] }[kind] || [600, 800];
-  o.frequency.setValueAtTime(f[0], t); o.frequency.exponentialRampToValueAtTime(f[1], t + 0.12); g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 0.26); } catch (e) {} }
-window.toggleSound = () => { soundOn = !soundOn; try { localStorage.setItem("coopcity-sound", soundOn ? "1" : "0"); } catch (e) {} beep("good"); goalsModal(); };
+let musicOn = true; try { musicOn = localStorage.getItem("coopcity-music") !== "0"; } catch (e) {}
+let AC = null, master, dayBus, nightBus, sfxBus, noiseBuf, musTimer = 0, musWant = [0, 0];
+function ac() {
+  if (AC) return AC; const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
+  AC = new C(); master = AC.createGain(); master.gain.value = 0.16; master.connect(AC.destination);
+  dayBus = AC.createGain(); dayBus.gain.value = 0; dayBus.connect(master);
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1600; nightBus = AC.createGain(); nightBus.gain.value = 0; nightBus.connect(lp); lp.connect(master);
+  sfxBus = AC.createGain(); sfxBus.gain.value = 0.35; sfxBus.connect(AC.destination);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate * 0.5 | 0, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return AC;
+}
+const mf = m => 440 * Math.pow(2, (m - 69) / 12);
+function env(g, t, a, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec); }
+function pluck(bus, m, t, vol, dec = 0.3, type = "square", cut = 2600) { const o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(mf(m) * 1.012, t); o.frequency.exponentialRampToValueAtTime(mf(m), t + 0.03);
+  f.type = "lowpass"; f.frequency.setValueAtTime(cut, t); f.frequency.exponentialRampToValueAtTime(cut * 0.3, t + dec); f.Q.value = 1.5;
+  env(g, t, 0.004, vol, dec); o.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t + dec + 0.06); }
+function lead(bus, m, t, dur, vol, type) { const o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter(), lfo = AC.createOscillator(), lg = AC.createGain();
+  o.type = type; o.frequency.value = mf(m); lfo.frequency.value = 5.2; lg.gain.value = mf(m) * 0.007; lfo.connect(lg); lg.connect(o.frequency);
+  f.type = "lowpass"; f.frequency.value = type === "sawtooth" ? 2000 : 5000;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.025); g.gain.setValueAtTime(vol * 0.85, t + Math.max(0.04, dur - 0.05)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.07);
+  o.connect(f); f.connect(g); g.connect(bus); o.start(t); lfo.start(t); o.stop(t + dur + 0.1); lfo.stop(t + dur + 0.1); }
+function noise(bus, t, dur, vol, freq, type = "highpass") { const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = noiseBuf;
+  f.type = type; f.frequency.value = freq; env(g, t, 0.002, vol, dur); s.connect(f); f.connect(g); g.connect(bus); s.start(t, Math.random() * 0.4); s.stop(t + dur + 0.05); }
+function cluck(bus, t, vol, big) { const o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain(); o.type = "square";
+  const a = big ? 620 : 540; o.frequency.setValueAtTime(a, t); o.frequency.exponentialRampToValueAtTime(a * (big ? 2.1 : 1.8), t + 0.035); o.frequency.exponentialRampToValueAtTime(a * 1.15, t + (big ? 0.16 : 0.08));
+  f.type = "bandpass"; f.frequency.value = 1300; f.Q.value = 2.5; env(g, t, 0.003, vol, big ? 0.17 : 0.08); o.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.22); noise(bus, t, 0.025, vol * 0.6, 2400, "bandpass"); }
+
+// Melody grid: 8 swung eighths per bar, semitones above the tonic (G4). H = hold, R = rest, chords = [root, minor?]
+const H = -99, R = null, MAJ = [0, 4, 7], MIN = [0, 3, 7];
+const SEC = {
+  A:  { ch: [[0, 0], [5, 0], [7, 0], [0, 0]], mel: [[7, R, 4, 7, 12, H, 9, 7], [9, H, 9, 7, 4, H, R, R], [2, 4, 7, H, 11, H, 9, 7], [7, 4, 2, 4, 0, H, H, R]] },
+  A2: { ch: [[0, 0], [5, 0], [7, 0], [0, 0]], mel: [[7, R, 4, 7, 12, H, 9, 7], [9, H, 9, 7, 4, H, R, R], [2, 4, 7, H, 11, H, 14, 12], [11, 9, 7, 4, 7, H, H, R]] },
+  B:  { ch: [[9, 1], [5, 0], [2, 1], [7, 0]], mel: [[4, H, H, 7, 9, H, 7, 4], [5, H, H, 4, 0, H, 4, H], [2, H, H, 4, 5, H, 9, H], [7, H, H, 9, 11, H, H, R]] },
+  C:  { ch: [[0, 0], [5, 0], [7, 0], [0, 0]], mel: [[12, 12, 12, R, 16, H, 12, R], [9, 9, 9, R, 12, H, 9, R], [11, 11, 11, R, 14, H, 11, 9], [7, 9, 11, 12, H, R, R, R]], cl: [[3, 7], [3, 7], [3], [5, 6, 7]] } };
+const DAY_FORM = ["A", "A2", "B", "A", "C", "C"], NIGHT_FORM = ["A", "A2", "B", "A"];
+const ROLL = [0, 2, 3, 1, 2, 3, 0, 2]; // banjo forward-roll over chord tones (3 = octave root)
+const mkSeq = (form, bpm, swing, night) => ({ form, bpm, swing, night, sec: 0, bar: 0, step: 0, loop: 0, t: 0, on: false, offAt: 0 });
+const DAYQ = mkSeq(DAY_FORM, 116, 0.62, false), NIGHTQ = mkSeq(NIGHT_FORM, 72, 0.54, true);
+function holdLen(mel, bar, step, secName, q) { let n = 1, b = bar, s = step + 1;
+  for (;;) { if (s > 7) { s = 0; b++; if (b > 3) break; } if (SEC[secName].mel[b][s] !== H) break; n++; s++; } return n; }
+function playStep(q, bus) {
+  const name = q.form[q.sec], S2 = SEC[name], [root, minor] = S2.ch[q.bar], tones = minor ? MIN : MAJ, e = 60 / q.bpm / 2, t = q.t, st = q.step;
+  const v = q.night ? 0 : q.loop % 4, key = v === 2 ? 2 : 0, chordT = i => root + (i === 3 ? 12 : tones[i]);
+  const note = S2.mel[q.bar][st];
+  if (q.night) {
+    if (st === 0) pluck(bus, 43 + key + root, t, 0.32, 1.4, "sine", 600);
+    if (st % 2 === 0) pluck(bus, 55 + key + chordT(ROLL[st]), t, 0.05, 0.9, "sine", 1200);
+    if (note !== R && note !== H) pluck(bus, 67 + key + note + 12, t, 0.14, 1.1, "sine", 3000);
+    return;
+  }
+  // boom-chick bass + chick strum
+  if (st === 0) pluck(bus, 43 + key + root, t, 0.42, 0.32, "triangle", 900);
+  if (st === 4) pluck(bus, 43 + key + root + (root >= 5 ? -5 : 7), t, 0.36, 0.3, "triangle", 900);
+  if (st === 2 || st === 6) { tones.forEach(k => pluck(bus, 55 + key + root + k, t, 0.05, 0.07, "triangle", 2000)); noise(bus, t, 0.05, 0.05, 3500); }
+  // shaker on every swung eighth, accent on the off-beats
+  noise(bus, t, 0.03, st % 2 ? 0.035 : 0.018, 7000);
+  // banjo roll (guitar on the banjo-lead loop so they don't clash)
+  if (v === 1) pluck(bus, 55 + key + chordT(ROLL[st]), t, 0.05, 0.18, "triangle", 1500);
+  else pluck(bus, 67 + key + chordT(ROLL[st]) - 12, t, 0.055, 0.2, "square", 3200);
+  // lead melody
+  if (note !== R && note !== H) { const dur = holdLen(S2.mel, q.bar, st, name, q) * e * 0.95, m = 67 + key + note;
+    if (v === 1) { pluck(bus, m, t, 0.2, 0.35, "square", 3600); }
+    else lead(bus, m, t, dur, v === 3 ? 0.11 : 0.1, v === 3 ? "sine" : "sawtooth"); }
+  // the cluck answer in the chorus
+  if (S2.cl && S2.cl[q.bar].includes(st)) cluck(bus, t, 0.16, q.bar === 3 && st === 7);
+}
+function advance(q) { const e = 60 / q.bpm / 2, long = 2 * e * q.swing, short = 2 * e - long;
+  q.t += q.step % 2 === 0 ? long : short; q.step++;
+  if (q.step > 7) { q.step = 0; q.bar++; if (q.bar > 3) { q.bar = 0; q.sec++; if (q.sec >= q.form.length) { q.sec = 0; q.loop++; } } } }
+const musicNight = () => !!(S && S.started && typeof isNight === "function" && isNight());
+function musicTick() {
+  if (!AC || AC.state !== "running") return; const now = AC.currentTime, ahead = now + 0.3;
+  const want = musicOn ? (musicNight() ? [0, 1] : [1, 0]) : [0, 0];
+  [[DAYQ, dayBus, 0], [NIGHTQ, nightBus, 1]].forEach(([q, bus, i]) => {
+    if (want[i] !== musWant[i]) { const fade = musicOn ? 4 : 0.6; bus.gain.cancelScheduledValues(now); bus.gain.setValueAtTime(bus.gain.value, now); bus.gain.linearRampToValueAtTime(want[i] ? (i ? 0.85 : 1) : 0, now + fade); if (!want[i]) q.offAt = now + fade; }
+    if (!want[i] && now > q.offAt) { q.on = false; return; }
+    if (!q.on) { q.on = true; q.t = now + 0.06; q.step = 0; q.bar = 0; }
+    if (q.t < now - 0.2) q.t = now + 0.05; // resumed after a pause: don't burst-play missed notes
+    while (q.t < ahead) { playStep(q, bus); advance(q); }
+  });
+  musWant = want;
+}
+function audioStart() { if (!ac()) return; if (AC.state !== "running") AC.resume().catch(() => {});
+  try { const b = AC.createBufferSource(); b.buffer = AC.createBuffer(1, 1, 22050); b.connect(AC.destination); b.start(0); } catch (e) {}
+  if (!musTimer && !document.hidden) musTimer = setInterval(musicTick, 100); }
+// Mobile browsers only allow audio after a user gesture: unlock on the first tap anywhere (Start/Continue included)
+["pointerup", "touchend", "click", "keydown"].forEach(ev => document.addEventListener(ev, function unlock() { audioStart(); if (AC && AC.state === "running") ["pointerup", "touchend", "click", "keydown"].forEach(x => document.removeEventListener(x, unlock, true)); }, true));
+document.addEventListener("visibilitychange", () => { if (!AC) return;
+  if (document.hidden) { clearInterval(musTimer); musTimer = 0; AC.suspend().catch(() => {}); } else { AC.resume().catch(() => {}); if (!musTimer) musTimer = setInterval(musicTick, 100); } });
+// Farm SFX (off by default; 🔊 toggle)
+function sfx(kind) { if (!soundOn || !ac() || AC.state !== "running") return; const t = AC.currentTime + 0.01, B = sfxBus;
+  try {
+    if (kind === "cluck") { cluck(B, t, 0.5); cluck(B, t + 0.13, 0.45); }
+    else if (kind === "egg") { pluck(B, 84, t, 0.35, 0.12, "sine", 5000); pluck(B, 91, t + 0.06, 0.3, 0.15, "sine", 5000); }
+    else if (kind === "coin") { pluck(B, 83, t, 0.25, 0.1, "square", 6000); pluck(B, 88, t + 0.07, 0.25, 0.25, "square", 6000); }
+    else if (kind === "crow") { const o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain(); o.type = "sawtooth";
+      [[0, 480], [0.12, 760], [0.35, 820], [0.7, 640], [1.0, 380]].forEach(([d, fr]) => o.frequency.linearRampToValueAtTime(fr, t + d)); f.type = "bandpass"; f.frequency.value = 1400; f.Q.value = 1.5;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.4, t + 0.05); g.gain.setValueAtTime(0.4, t + 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.05); o.connect(f); f.connect(g); g.connect(B); o.start(t); o.stop(t + 1.1); }
+    else if (kind === "pour") { noise(B, t, 0.35, 0.25, 1200, "bandpass"); pluck(B, 79, t + 0.25, 0.15, 0.2, "sine", 4000); }
+    else { const f = { lvl: [72, 76, 79, 84], warn: [62, 58], good: [76, 81] }[kind] || [76]; f.forEach((m, i) => pluck(B, m, t + i * 0.08, 0.25, 0.18, "triangle", 4000)); }
+  } catch (e) {} }
+const beep = sfx;
+function audioBtns() { const m = $("#musicBtn"), s = $("#sfxBtn"); if (m) { m.classList.toggle("off", !musicOn); m.setAttribute("aria-pressed", musicOn); } if (s) { s.classList.toggle("off", !soundOn); s.setAttribute("aria-pressed", soundOn); } }
+window.toggleMusic = () => { musicOn = !musicOn; try { localStorage.setItem("coopcity-music", musicOn ? "1" : "0"); } catch (e) {} audioStart(); toast(musicOn ? "🎵 Music on" : "🎵 Music off"); audioBtns(); if (!$("#modal").classList.contains("hidden") && $("#modal").innerText.includes("farmer name")) goalsModal(); };
+window.toggleSound = () => { soundOn = !soundOn; try { localStorage.setItem("coopcity-sound", soundOn ? "1" : "0"); } catch (e) {} audioStart(); sfx("cluck"); toast(soundOn ? "🔊 Farm sounds on" : "🔇 Farm sounds off"); audioBtns(); if (!$("#modal").classList.contains("hidden") && $("#modal").innerText.includes("farmer name")) goalsModal(); };
 function coinPop(n) { const el = $("#coinPop"); if (!el) return; el.textContent = (n > 0 ? "+" : "") + n + "🪙"; el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
   const st = $("#coinStat"); st.classList.remove("bump"); void st.offsetWidth; st.classList.add("bump"); }
 function gain(n, why) { if (!n) return; S.coins += n; coinPop(n); beep("coin"); if (why) toast(why); }
@@ -773,7 +916,8 @@ function dayThreat(kind) {
   a.tx = target.x - 2; a.ty = ty;
   const sh = T.sky ? actor("", "shadow", sx, target.y + 7, 45, { noflip: 1 }) : null; if (sh) { sh.tx = target.x; sh.ty = target.y + 8; }
   threat = { kind, T, a, sh, target, fromL, sx, done: false };
-  a.el.addEventListener("pointerdown", e => { e.stopPropagation(); if (threat && !threat.done) { threat.tapped = true; resolveDay(); } });
+  a.el.classList.add("tappable"); a.el._tap = () => { if (threat && !threat.done) { threat.tapped = true; resolveDay(); } };
+  a.el.addEventListener("pointerdown", e => { e.stopPropagation(); a.el._tap(); });
   toast(`⚠️ ${T.name}! Tap it to scare it off!`); beep("warn");
   const g = roo();
   runForCover(4200, S.hens.filter(h => h.pers === "shy"));
@@ -953,7 +1097,8 @@ function goalsModal() {
     <p class="demo">Codes work offline and each gift opens once per device. Live neighbors would need a server later.</p>`;
   else body = `<p><b>Your farmer name</b></p><div class="namerow"><input id="playerIn" maxlength="24" value="${esc(S.player)}" placeholder="Your name"><button class="buy" onclick="setPlayer()">Save</button></div>
     <p>Brayden is your clueless neighbor and guide. You're the one in charge.</p>
-    <button class="act big" onclick="toggleSound()">${soundOn ? "🔊 Sounds on" : "🔇 Sounds off"}</button>
+    <button class="act big" onclick="toggleMusic()">${musicOn ? "🎵 Music on" : "🎵 Music off"}</button>
+    <button class="act big" onclick="toggleSound()">${soundOn ? "🔊 Farm sounds on" : "🔇 Farm sounds off"}</button>
     <button class="act big" onclick="resetGame()">🗑️ Start a new farm</button><p style="font-size:12px">Progress saves automatically on this device.</p>`;
   modal(`<h2>🐔 ${esc(S.player ? S.player + "'s farm" : "My farm")}</h2><div class="tabs">${tabs}</div>${body}<button class="act big" onclick="closeModal()">Close</button>`);
 }
@@ -964,16 +1109,20 @@ window.doReset = () => { try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
 
 /* ---------- INPUT ---------- */
 $("#tools").addEventListener("click", e => { const b = e.target.closest(".tool"); if (!b) return; tool = b.dataset.t; renderTools(); if (ITEMS[tool].tip) say(`${ITEMS[tool].name}: ${ITEMS[tool].tip}`, 1); });
-$("#grid").addEventListener("click", e => {
-  const eg = e.target.closest("[data-egg]");
+function tileTap(target) {
+  const eg = target.closest("[data-egg]");
   if (eg) return collect(+eg.dataset.egg);
-  const sg = e.target.closest("[data-plot]"); if (sg) return plotModal(sg.dataset.plot);
-  const t = e.target.closest(".tile"); if (!t) return; let i = +t.dataset.i, g = S.grid[i];
+  const sg = target.closest("[data-plot]"); if (sg) return plotModal(sg.dataset.plot);
+  const t = target.closest(".tile"); if (!t) return; tapFX(t); let i = +t.dataset.i, g = S.grid[i];
   if (!owned(i)) return plotModal(plotOf(i));
   if (g && g.type === "annex") { i = g.of; g = S.grid[i]; }
   if (tool === "hand") {
-    if (g && g.type === "feeder") { if (S.feed < 1) { say("The feed bag is empty! <i>Tip: buy a bag of layer feed in the 🛒 Shop under Supplies.</i>", 1); return toast("Out of feed! Buy some in the Shop."); } S.feed--; g.lvl = 100; floatAt(i, "-1 scoop 🌾"); bump("refill"); }
-    else if (g && g.type === "waterer") { g.lvl = 100; floatAt(i, "💧 full"); bump("refill"); }
+    if (g && g.type === "feeder") {
+      if (g.lvl >= 95) { toast("🌾 Feeder is already full 👍", 1); return; }
+      if (S.feed < 1) { say("The feed bag is empty! <i>Tip: buy a bag of layer feed in the 🛒 Shop under 🌾 Supplies.</i>", 1); toast("🌾 Out of feed! Opening Shop → Supplies", 1); shopTab = "supplies"; setTimeout(shop, 500); return; }
+      S.feed--; g.lvl = 100; floatAt(i, "🌾 full!"); bump("refill"); sfx("pour");
+      toast(S.feed <= 1 ? `Feeder filled! -1 scoop (${S.feed} left: buy more in Shop → Supplies)` : `Feeder filled! -1 scoop (${S.feed} left)`, 1); }
+    else if (g && g.type === "waterer") { if (g.lvl >= 95) { toast("💧 Water's already fresh 👍", 1); return; } g.lvl = 100; floatAt(i, "💧 full!"); bump("refill"); sfx("pour"); toast("💧 Waterer filled! Fresh water", 1); }
     else if (g && g.type === "coop") return toggleLock();
     else if (g && g.type === "incubator") return incubatorModal();
     return renderAll();
@@ -989,10 +1138,10 @@ $("#grid").addEventListener("click", e => {
   S.coins -= it.cost; S.grid[i] = { type: tool, lvl: 100 }; floatAt(i, `-${it.cost}🪙`); if (tool !== "run") S.bugs = S.bugs.filter(b => b.tile !== i);
   if (!S.said["built_" + tool]) { S.said["built_" + tool] = 1; say(`${it.joke} <i>${it.tip}</i>`, 1); }
   renderAll(); wander();
-});
+}
 function collect(k) {
   const e = S.ground.splice(k, 1)[0]; S.basket.push(e); S.lifetime++; bump("eggs"); xp(2);
-  S.collection[e.color] = (S.collection[e.color] || 0) + 1; floatAt(e.tile, "+1 🥚");
+  S.collection[e.color] = (S.collection[e.color] || 0) + 1; floatAt(e.tile, "+1 🥚"); sfx("egg");
   renderAll();
   if (S.collection[e.color] === 1 && e.color !== "white" && e.color !== "brown") setTimeout(() => shareCard(e), 400);
 }
@@ -1005,11 +1154,11 @@ function toggleLock() {
 $("#lockBtn").onclick = toggleLock;
 $("#speedBtn").onclick = () => { S.speed = { 1: 2, 2: 4, 4: 0, 0: 1 }[S.speed]; renderHUD(); loop(); };
 $("#henbar").addEventListener("click", e => { const c = e.target.closest("[data-card]"); if (!c) return; c.dataset.card === "roo" ? roosterModal() : henModal(c.dataset.card); });
-$("#hens").addEventListener("click", e => { const el = e.target.closest(".hen"); if (!el) return;
+function henTap(el) { sfx("cluck"); el.classList.remove("poke"); void el.offsetWidth; el.classList.add("poke");
   if (el.dataset.roo) return say(`<b>${S.rooster.name}</b> the ${ROOS[S.rooster.breed].name}: ${ROOS[S.rooster.breed].blurb} <i>${ROO_FACT}</i>`, 1);
   const h = S.hens.find(x => x.id == el.dataset.h); if (!h) return; bump("pet");
   if (h.pers === "cuddly" || Math.random() < 0.5) { h.happy = Math.min(100, h.happy + (h.pers === "cuddly" ? 5 : 2)); particle("💛", h.x + 7, h.y, 0); }
-  const P = PERS[h.pers]; say(`<b>${h.name}</b> the ${CH[h.breed].name} (${P[0]} ${P[1]}): ${P[2]} <i>${CH[h.breed].fact}</i>`, 1); renderAll(); });
+  const P = PERS[h.pers]; say(`<b>${h.name}</b> the ${CH[h.breed].name} (${P[0]} ${P[1]}): ${P[2]} <i>${CH[h.breed].fact}</i>`, 1); renderAll(); }
 
 /* ---------- SELL / SHOP / SHARE ---------- */
 function counts(list) { const c = {}; list.forEach(e => c[e.color] = (c[e.color] || 0) + 1); return c; }
@@ -1192,7 +1341,7 @@ window.sellChick = id => { const c = S.chicks.find(x => x.id == id); if (!c) ret
 /* ---------- START ---------- */
 function title() {
   const sv = loadSave();
-  modal(`<div class="title"><h1>Coop City</h1><div class="sub">Chickens for people who can't have chickens (yet).</div><div class="ver">build 7 · rooster guard + predators</div>
+  modal(`<div class="title"><h1>Coop City</h1><div class="sub">Chickens for people who can't have chickens (yet).</div><div class="ver">build 8 · tap fix + music</div>
    <div style="width:80px;margin:6px auto">${guySVG}</div>
    ${sv && sv.hens ? `<button class="buy big" onclick="continueGame()">▶️ Continue${sv.player ? " as " + esc(sv.player) : ""} · Day ${sv.day}</button><p style="font-size:12px;margin:4px 0">or start a new farm:</p>` : ""}
    <p>"Hi, I'm Brayden, your neighbor. I just got chickens too and I have NO idea what I'm doing. What's your name?"</p>
@@ -1213,7 +1362,7 @@ let timer, wtimer;
 const hourMs = () => (isNight() ? 2000 : 4500) / S.speed;
 function step() { tick(); if (S.speed) timer = setTimeout(step, hourMs()); }
 function loop() { startLoop(); clearTimeout(timer); clearInterval(timer); if (S.speed) timer = setTimeout(step, hourMs()); clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
-$("#guyArt").innerHTML = guySVG; initParticles(); initPan(); $("#goalbar").onclick = goalsModal; $("#recenter").onclick = e => { e.stopPropagation(); recenter(); };
+$("#guyArt").innerHTML = guySVG; initParticles(); initPan(); audioBtns(); $("#goalbar").onclick = goalsModal; $("#recenter").onclick = e => { e.stopPropagation(); recenter(); };
 
 // Demo states for screenshots: ?demo=yard|night|shop|hensshop|coopshop|guardshop|henmodal|incubator|share|title|hawk|predator|goals|book|trade|land|barn|care|visit
 const demo = new URLSearchParams(location.search).get("demo");
@@ -1267,5 +1416,5 @@ else {
   if (/^(yard|hawk|predator|night|barn)$/.test(demo)) { clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
 }
 // test hooks (read-only debugging)
-window.__cc = { get S() { return S; }, pan, dayThreat, nightThreat, mkCode, readCode, farmSnap, frameLog: () => frameLog, SAVE_KEY };
+window.__cc = { get S() { return S; }, pan, dayThreat, nightThreat, mkCode, readCode, farmSnap, frameLog: () => frameLog, SAVE_KEY, audio: () => ({ state: AC && AC.state, musicOn, soundOn, day: dayBus && +dayBus.gain.value.toFixed(2), night: nightBus && +nightBus.gain.value.toFixed(2), dayQ: { sec: DAYQ.sec, bar: DAYQ.bar, loop: DAYQ.loop, on: DAYQ.on }, nightQ: { on: NIGHTQ.on } }) };
 })();
