@@ -175,7 +175,8 @@ function renderGrid() {
 const henEls = new Map();
 let yardW = 0, yardH = 0;
 function measureYard() { const el = $("#hens"); yardW = el.clientWidth; yardH = el.clientHeight; }
-const xf = (x, y) => `translate3d(${(x * yardW / 100).toFixed(1)}px,${(y * yardH / 100).toFixed(1)}px,0)`;
+// Keep birds fully inside the yard (hen is 15% wide, about 11% tall)
+const xf = (x, y) => { x = Math.min(85, Math.max(0, x)); y = Math.min(89, Math.max(0, y)); return `translate(${(x * yardW / 100).toFixed(1)}px,${(y * yardH / 100).toFixed(1)}px)`; };
 function birdEl(key, svg, attrs) {
   let el = henEls.get(key);
   if (!el) {
@@ -215,7 +216,9 @@ function renderHens() {
   S.hens.forEach((h, k) => { const c = bar.children[k]; if (!c) return; const [a, b] = c.querySelectorAll(".bar i");
     const w1 = Math.round(h.health) + "%", w2 = Math.round(h.happy) + "%"; if (a.style.width !== w1) a.style.width = w1; if (b.style.width !== w2) b.style.width = w2; });
 }
-if (window.ResizeObserver) new ResizeObserver(() => { measureYard(); henEls.forEach(el => el._t = ""); S && renderHens(); renderForage(); }).observe($("#hens"));
+// Only re-place birds when the yard WIDTH really changes (rotation, desktop resize). Mobile address-bar
+// show/hide and HUD text changes must not snap hens. The yard is square tiles, so height follows width.
+if (window.ResizeObserver) new ResizeObserver(() => { const w = $("#hens").clientWidth; if (Math.abs(w - yardW) < 4) return; measureYard(); if (S) renderHens(); }).observe($("#hens"));
 function renderHUD() {
   $("#coins").textContent = S.coins; $("#day").textContent = S.day;
   $("#clock").textContent = `${(S.hour % 12) || 12}:00 ${S.hour < 12 ? "am" : "pm"}`;
@@ -305,7 +308,7 @@ function tryForage(h) {
 function peck(h, bug) {
   h.busy = false;
   if (!S.hens.includes(h) || !S.bugs.includes(bug) || isNight() || S.locked) { bug.claimed = 0; return; }
-  const el = henEls.get("h" + h.id); if (el) { const bob = el.querySelector(".bob"); bob.classList.remove("pecking"); void bob.offsetWidth; bob.classList.add("pecking"); }
+  const el = henEls.get("h" + h.id); if (el) { const bob = el.querySelector(".bob"); bob.classList.remove("pecking"); void bob.offsetWidth; bob.classList.add("pecking"); bob.addEventListener("animationend", () => bob.classList.remove("pecking"), { once: true }); }
   setTimeout(() => {
     if (!S.bugs.includes(bug)) return;
     S.bugs = S.bugs.filter(b => b !== bug); S.foraged++;
@@ -606,14 +609,14 @@ window.sellChick = id => { const c = S.chicks.find(x => x.id == id); if (!c) ret
 
 /* ---------- START ---------- */
 function title() {
-  modal(`<div class="title"><h1>Coop City</h1><div class="sub">A chicken sim for people who've never met a chicken.</div>
+  modal(`<div class="title"><h1>Coop City</h1><div class="sub">A chicken sim for people who've never met a chicken.</div><div class="ver">build 6 · smooth hens + bugs</div>
    <div style="width:90px;margin:10px auto">${guySVG}</div>
    <p>"Hi, I'm Brayden. I moved to a house with a yard and got a hen. I have no idea what I'm doing."</p>
    <p><b>Pick your first hen:</b></p>
    ${["leghorn","barred"].map(k=>`<div class="row">${henSVG(k)}<div class="t"><b>${CH[k].name}</b><br>${CH[k].blurb}</div><button class="buy" onclick="start('${k}')">Adopt</button></div>`).join("")}
    <p style="font-size:12px;opacity:.7">More breeds unlock as you sell eggs. Egg laying is simulated demo data.</p></div>`);
 }
-window.start = k => { fresh(k); closeModal(); renderTools(); renderAll(); wander(); say("Grandma left me a coop, a feeder, and a waterer. Now what? <i>Tip: tap the feeder or waterer to refill them, and lock the coop at night.</i>", 1); loop(); };
+window.start = k => { fresh(k); ["beetle", "cricket", "worm", "beetle"].forEach(b => spawnBug(b)); closeModal(); renderTools(); renderAll(); wander(); say("Grandma left me a coop, a feeder, and a waterer. Now what? <i>Tip: tap the feeder or waterer to refill them, and lock the coop at night.</i>", 1); loop(); };
 let timer, wtimer;
 // Daytime hours last longer than night hours so players have time to build
 const hourMs = () => (isNight() ? 2000 : 4500) / S.speed;

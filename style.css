@@ -4,7 +4,7 @@ body{margin:0;font-family:"Trebuchet MS",system-ui,sans-serif;background:#2c3e50
 #hud{display:flex;gap:4px;justify-content:space-between;padding:8px 8px 6px;background:#3a2a1a;color:#ffe9b0;font-size:13px;box-shadow:0 2px 0 #1f160d}
 .stat{background:#5a4128;border-radius:8px;padding:4px 6px;white-space:nowrap}
 .stat b{color:#fff}
-#grid-wrap{position:relative;margin:8px;border-radius:14px;overflow:hidden;border:4px solid #6b4b2a;box-shadow:0 4px 0 #4a321b}
+#grid-wrap{position:relative;isolation:isolate;-webkit-transform:translateZ(0);transform:translateZ(0);margin:8px;border-radius:14px;overflow:hidden;border:4px solid #6b4b2a;box-shadow:0 4px 0 #4a321b}
 #grid{display:grid;grid-template-columns:repeat(6,1fr);background:#7cc35a}
 .tile{aspect-ratio:1;position:relative;border:1px solid rgba(0,0,0,.06);background:
  radial-gradient(circle at 30% 30%,#8fd16a 0 12%,transparent 13%),radial-gradient(circle at 70% 75%,#6fb54e 0 10%,transparent 11%),#7cc35a;cursor:pointer}
@@ -14,10 +14,10 @@ body{margin:0;font-family:"Trebuchet MS",system-ui,sans-serif;background:#2c3e50
 .tile .lvl{position:absolute;bottom:2px;left:10%;width:80%;height:5px;background:#0003;border-radius:3px;overflow:hidden}
 .tile .lvl i{display:block;height:100%;background:#4fc3f7}
 .tile .lvl.feed i{background:#f9a825}
-.egg-drop{position:absolute;width:42%;height:50%;left:29%;top:22%;z-index:5;animation:bob 1s infinite alternate;will-change:transform}
+.egg-drop{position:absolute;width:42%;height:50%;left:29%;top:22%;z-index:5;animation:bob 1s infinite alternate}
 @keyframes bob{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,-4px,0)}}
 #hens{position:absolute;inset:0;pointer-events:none}
-.hen{position:absolute;left:0;top:0;width:15%;transition:transform 2.2s ease-in-out,opacity .6s;will-change:transform;pointer-events:auto;cursor:pointer;z-index:4}
+.hen{position:absolute;left:0;top:0;width:15%;transition:transform 2.2s ease-in-out,opacity .6s;-webkit-backface-visibility:hidden;backface-visibility:hidden;pointer-events:auto;cursor:pointer;z-index:4}
 .hen.inside{opacity:0;pointer-events:none}
 .hen .flipper{transition:transform .35s ease}
 .hen.flip .flipper{transform:scaleX(-1)}
@@ -27,7 +27,7 @@ body{margin:0;font-family:"Trebuchet MS",system-ui,sans-serif;background:#2c3e50
 @keyframes idle{0%,70%,100%{transform:translate3d(0,0,0) rotate(0)}35%{transform:translate3d(0,-1.5px,0) rotate(0)}82%{transform:translate3d(0,0,0) rotate(10deg)}}
 @keyframes pecking{0%,100%{transform:rotate(0)}50%{transform:translate3d(1px,3px,0) rotate(28deg)}}
 .hen .mood{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:13px}
-#night{position:absolute;inset:0;background:#0b1a40;opacity:0;pointer-events:none;transition:opacity 3s ease-in-out;will-change:opacity}
+#night{position:absolute;inset:0;background:#0b1a40;opacity:0;pointer-events:none;transition:opacity 3s ease-in-out}
 #sky{position:absolute;inset:0;pointer-events:none;z-index:6}
 .rain{position:absolute;left:0;right:0;top:-30px;bottom:0;background:repeating-linear-gradient(105deg,transparent 0 14px,rgba(255,255,255,.35) 14px 15px);background-size:30px 30px;animation:rain .5s linear infinite;will-change:transform}
 @keyframes rain{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,30px,0)}}
@@ -94,14 +94,15 @@ body{margin:0;font-family:"Trebuchet MS",system-ui,sans-serif;background:#2c3e50
 
 /* Forage layer: bugs and worms (CSS transform animations only) */
 #forage{position:absolute;inset:0;pointer-events:none;z-index:3}
-.bug{position:absolute;font-size:12px;line-height:1;transition:opacity .3s,transform .3s}
-.bug span{display:inline-block;will-change:transform}
+.bug{position:absolute;font-size:19px;line-height:1;transition:opacity .3s,transform .3s;margin:-10px 0 0 -10px}
+.bug::before{content:"";position:absolute;left:50%;top:60%;width:22px;height:8px;margin-left:-11px;border-radius:50%;background:rgba(0,0,0,.18)}
+.bug span{display:inline-block;position:relative}
 .bug.gone{opacity:0;transform:scale(.3)}
 .bug.beetle span{animation:crawl 6s linear infinite}
 .bug.cricket span{animation:hop 3s ease-out infinite}
-.bug.worm span{font-size:11px;animation:wiggle 1.4s ease-in-out infinite}
-.bug.fly span{font-size:10px;animation:buzz 1.8s linear infinite}
-.bug.butterfly span{font-size:14px;animation:flutter 5s ease-in-out infinite}
+.bug.worm span{font-size:18px;animation:wiggle 1.4s ease-in-out infinite}
+.bug.fly span{font-size:15px;animation:buzz 1.8s linear infinite}
+.bug.butterfly span{font-size:20px;animation:flutter 5s ease-in-out infinite}
 @keyframes crawl{0%{transform:translate3d(0,0,0) rotate(0)}25%{transform:translate3d(8px,2px,0) rotate(20deg)}50%{transform:translate3d(10px,-4px,0) rotate(-10deg)}75%{transform:translate3d(2px,-3px,0) rotate(-30deg)}100%{transform:translate3d(0,0,0) rotate(0)}}
 @keyframes hop{0%,60%,100%{transform:translate3d(0,0,0)}70%{transform:translate3d(5px,-10px,0)}80%{transform:translate3d(10px,0,0)}90%{transform:translate3d(10px,0,0)}}
 @keyframes wiggle{0%,100%{transform:scaleX(1) rotate(-6deg)}50%{transform:scaleX(.8) rotate(6deg)}}
@@ -110,3 +111,5 @@ body{margin:0;font-family:"Trebuchet MS",system-ui,sans-serif;background:#2c3e50
 .tile .tuft{position:absolute;width:34%;pointer-events:none}
 .tile .tuft svg{position:static;width:100%;height:auto}
 .tile .tuft.l2{opacity:.75;transform:scale(.8)}.tile .tuft.l1{opacity:.5;transform:scale(.6)}
+
+.title .ver{font-size:10px;opacity:.55;margin-top:2px}
