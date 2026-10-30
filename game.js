@@ -7,22 +7,30 @@ const NAMES = ["Henrietta","Nugget","Beyoncé","Clucky","Omelette","Peggy","Doll
 
 /* ---------- ART ---------- */
 let pid = 0;
+const ROOS = SPECIES.chicken.roosters, ROO_FACT = SPECIES.chicken.roosterFact;
 function henSVG(breed) {
-  const a = CH[breed].art, id = "p" + (pid++);
+  const a = breed.startsWith("roo:") ? ROOS[breed.slice(4)].art : CH[breed].art, id = "p" + (pid++);
   let defs = "", fill = a.body;
   if (a.pattern === "barred") { defs = `<pattern id="${id}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(-20)"><rect width="8" height="8" fill="#eee"/><rect width="8" height="3.5" fill="#333"/></pattern>`; fill = `url(#${id})`; }
   if (a.pattern === "laced") { defs = `<pattern id="${id}" width="10" height="9" patternUnits="userSpaceOnUse"><rect width="10" height="9" fill="#f6f6f6"/><path d="M0 9 Q5 1 10 9" fill="none" stroke="#2b2b2b" stroke-width="2"/></pattern>`; fill = `url(#${id})`; }
+  if (a.pattern === "patchy") { defs = `<pattern id="${id}" width="22" height="18" patternUnits="userSpaceOnUse"><rect width="22" height="18" fill="${a.body}"/><ellipse cx="5" cy="5" rx="4" ry="3" fill="#f2f0e8"/><ellipse cx="16" cy="13" rx="3" ry="2.5" fill="#e8e5da"/></pattern>`; fill = `url(#${id})`; }
+  if (a.pattern === "darklaced") { defs = `<pattern id="${id}" width="10" height="9" patternUnits="userSpaceOnUse"><rect width="10" height="9" fill="${a.body}"/><path d="M0 9 Q5 1 10 9" fill="none" stroke="#efeee6" stroke-width="2"/></pattern>`; fill = `url(#${id})`; }
   const cs = a.combSize || 1;
   const comb = cs < 0.8 ? `<ellipse cx="72" cy="18" rx="${9*cs+3}" ry="4" fill="${a.comb}"/>`
     : [62,70,78].map((x,i)=>`<circle cx="${x}" cy="${18-(i==1?3:0)*cs}" r="${5.5*cs}" fill="${a.comb}"/>`).join("");
+  const rx = a.fluffy ? 35 : 31, ry = a.fluffy ? 28 : 24;
+  const tail = a.tail ? `<path d="M30 54 Q0 10 22 8 Q30 26 38 42Z" fill="${a.tail}"/><path d="M30 50 Q4 30 10 22 Q24 34 36 44Z" fill="${a.tail2 || a.tail}"/>`
+    : `<path d="M28 52 Q8 20 18 18 Q26 30 34 40Z" fill="${a.wing}"/>`;
+  const fluff = a.fluffy ? [[26,70],[36,77],[50,80],[64,77],[22,58]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="9" fill="${a.body}"/>`).join("") : "";
+  const crest = a.crest ? [[64,20,-30],[70,17,-10],[76,18,15]].map(([x,y,r])=>`<ellipse cx="${x}" cy="${y}" rx="4" ry="8" fill="${a.crest}" stroke="#0002" transform="rotate(${r} ${x} ${y})"/>`).join("") : "";
   return `<svg viewBox="0 0 100 95"><defs>${defs}</defs>
-  <path d="M28 52 Q8 20 18 18 Q26 30 34 40Z" fill="${a.wing}"/>
+  ${tail}
   <line x1="44" y1="76" x2="40" y2="90" stroke="${a.legs}" stroke-width="4" stroke-linecap="round"/><line x1="58" y1="76" x2="60" y2="90" stroke="${a.legs}" stroke-width="4" stroke-linecap="round"/>
-  <ellipse cx="50" cy="56" rx="31" ry="24" fill="${fill}" stroke="#0002"/>
+  ${fluff}<ellipse cx="50" cy="56" rx="${rx}" ry="${ry}" fill="${fill}" stroke="#0002"/>
   <ellipse cx="44" cy="58" rx="16" ry="11" fill="${a.wing}" opacity=".9"/>
   ${a.hackle ? `<ellipse cx="68" cy="42" rx="12" ry="14" fill="${a.hackle}"/>` : ""}
-  ${comb}
-  <circle cx="72" cy="32" r="13" fill="${a.pattern ? (a.pattern=="barred"?"#ddd":"#f6f6f6") : a.body}" stroke="#0002"/>
+  ${comb}${crest}
+  <circle cx="72" cy="32" r="13" fill="${a.face || (a.pattern ? (a.pattern=="barred"?"#ddd":"#f6f6f6") : a.body)}" stroke="#0002"/>
   ${a.muffs ? `<ellipse cx="74" cy="42" rx="10" ry="6" fill="#7a5233"/>` : `<ellipse cx="79" cy="43" rx="3.5" ry="5" fill="${a.comb}"/>`}
   <path d="M84 30 L95 34 L84 37Z" fill="${a.beak}"/>
   <circle cx="76" cy="29" r="3.4" fill="#fff"/><circle cx="77" cy="29" r="2" fill="${a.eye||"#222"}"/>
@@ -41,6 +49,7 @@ const ART = {
   nest: () => `<svg viewBox="0 0 100 100"><rect x="14" y="40" width="72" height="50" fill="#a1683a" stroke="#6d4421" stroke-width="3"/><path d="M18 46 Q30 36 40 46 Q50 34 60 46 Q72 36 82 46" stroke="#f4d03f" stroke-width="7" fill="none"/><rect x="14" y="30" width="72" height="10" fill="#8d5a2b"/></svg>`,
   fence: () => `<svg viewBox="0 0 100 100"><rect y="34" width="100" height="9" fill="#8d6e63"/><rect y="62" width="100" height="9" fill="#8d6e63"/>${[10,40,70].map(x=>`<path d="M${x} 90 V24 L${x+10} 14 L${x+20} 24 V90Z" fill="#bcaaa4" stroke="#6d4c41" stroke-width="2"/>`).join("")}</svg>`,
   tree: () => `<svg viewBox="0 0 100 100"><rect x="44" y="56" width="12" height="36" fill="#6d4c41"/><circle cx="50" cy="42" r="30" fill="#388e3c"/><circle cx="36" cy="34" r="16" fill="#43a047"/><circle cx="62" cy="30" r="14" fill="#4caf50"/></svg>`,
+  incubator: () => `<svg viewBox="0 0 100 100"><rect x="12" y="34" width="76" height="54" rx="10" fill="#eceff1" stroke="#78909c" stroke-width="3"/><rect x="22" y="44" width="56" height="28" rx="6" fill="#ffe0b2" stroke="#90a4ae" stroke-width="2"/>${[34,50,66].map(x=>`<ellipse cx="${x}" cy="58" rx="6" ry="8" fill="#f7f4ea" stroke="#0003"/>`).join("")}<circle cx="78" cy="80" r="3" fill="#ef5350"/><rect x="22" y="78" width="30" height="5" rx="2" fill="#4fc3f7"/></svg>`,
   hand: () => `<svg viewBox="0 0 100 100"><text x="50" y="68" font-size="56" text-anchor="middle">👆</text></svg>`,
   bulldoze: () => `<svg viewBox="0 0 100 100"><text x="50" y="68" font-size="56" text-anchor="middle">🧹</text></svg>`
 };
@@ -55,14 +64,23 @@ const ITEMS = {
   nest:    { name: "Nest box", cost: 8, joke: "It's a cozy little box for laying. Very Scandinavian.", tip: "Hens like a dark, comfy nest box to lay in. Without one they hide eggs in the grass." },
   run:     { name: "Run", cost: 6, joke: "A covered run! It's like a gated community for birds.", tip: "A covered run gives hens outdoor space and protects them from hawks." },
   fence:   { name: "Fence", cost: 3, joke: "Fences! Like a velvet rope, but for raccoons.", tip: "Fencing keeps out ground predators like raccoons and foxes." },
+  incubator:{ name: "Incubator", cost: 40, max: 1, joke: "I bought an egg oven! Not for cooking. Apparently that's important.", tip: "Put fertile eggs from your basket in it to hatch chicks. Fertile eggs need a rooster in the flock. Tap it to open." },
   tree:    { name: "Shade tree", cost: 12, joke: "I planted a tree. I am basically a farmer now.", tip: "Hens need shade on hot days, and trees give cover from hawks." },
   bulldoze:{ name: "Remove", cost: 0 }
 };
+// Coop levels: more room as you earn more, and bigger coops stay cleaner longer
+const COOPS = [
+  { name: "Starter coop", cap: 3, cost: 0, dirt: 1, joke: "" },
+  { name: "Big coop", cap: 6, cost: 60, dirt: 0.85, joke: "I added a second floor. It's a chicken duplex now.", tip: "Plan about 4 square feet per hen inside the coop, plus one nest box for every 4 or 5 hens." },
+  { name: "Barn coop", cap: 10, cost: 150, dirt: 0.7, joke: "I own a BARN. I am legally a farmer. (I am not legally a farmer.)", tip: "More room means less pecking and less mess. Good airflow keeps a big coop dry and healthy." }
+];
+const OLD_AGE = 20, INCUBATE_DAYS = 3, INCUBATOR_CAP = 6, HATCH_RATE = 0.75, CHICK_GROW_DAYS = 4;
 const WEATHER = [["☀️","Sunny"],["☀️","Sunny"],["🔥","Hot"],["🌧️","Rain"],["❄️","Cold"],["⛅","Cloudy"]];
 const QUIZ = [
   ["Do hens need a rooster to lay eggs?", ["Yes","No"], 1, "Nope! Hens lay without a rooster. You only need one for fertile eggs that can hatch into chicks."],
   ["What color eggs does the all-black Ayam Cemani lay?", ["Black","Cream"], 1, "Cream! Black feathers, black skin, totally normal eggs."],
   ["Roughly how often can a good laying hen lay?", ["About once a day","Once a week"], 0, "A good layer can lay about one egg a day in her prime, less in winter."],
+  ["Which breed's chicks can be sexed by their down color at hatch?", ["Cream Legbar","Leghorn"], 0, "Cream Legbar! It's an auto-sexing breed. Most breeds can't be sexed by looks at hatch."],
   ["Does egg shell color change how it tastes?", ["Yes","No"], 1, "No. Shell color comes from the breed. Taste comes from diet and freshness."]
 ];
 
@@ -70,16 +88,32 @@ const QUIZ = [
 let S;
 function fresh(breed = "leghorn") {
   S = { coins: 60, day: 1, hour: 7, grid: Array(N).fill(null), hens: [], basket: [], ground: [], locked: false,
-    weather: WEATHER[0], speed: 1, collection: {}, said: {}, unlocked: { leghorn: true }, premium: {}, quizI: 0, lifetime: 0, feed: 5, clean: 100 };
+    weather: WEATHER[0], speed: 1, collection: {}, said: {}, unlocked: { leghorn: true }, premium: {}, quizI: 0, lifetime: 0, feed: 5, clean: 100,
+    coopLvl: 0, rooster: null, incub: [], chicks: [], hatched: 0, duds: 0 };
   // Starter yard: a basic coop, feeder, and waterer so new players aren't overwhelmed
   [["coop", 7], ["feeder", 13], ["waterer", 14]].forEach(([t, i]) => S.grid[i] = { type: t, lvl: 100 });
   addHen(breed, true);
 }
-function addHen(breed, free) {
+function addHen(breed, free, mix) {
   const b = CH[breed]; const used = S.hens.map(h => h.name);
   const name = NAMES.find(n => !used.includes(n)) || "Hen " + (S.hens.length + 1);
-  S.hens.push({ id: Math.random(), breed, name, health: 90, happy: 80, egg: rnd(b.eggs), x: 40 + Math.random() * 30, y: 40 + Math.random() * 30, flip: false });
+  S.hens.push({ id: Math.random(), breed, name, age: 0, mix: !!mix, health: 90, happy: 80, egg: rnd(b.eggs), x: 40 + Math.random() * 30, y: 40 + Math.random() * 30, flip: false });
 }
+const capacity = () => has("coop") ? COOPS[S.coopLvl].cap : 3;
+const isOld = h => h.age >= OLD_AGE;
+const breedLabel = h => CH[h.breed].name + (h.mix ? " mix" : "");
+const rooSVG = () => henSVG("roo:" + S.rooster.breed);
+// Chick breed from the hen x rooster pair
+function chickOf(hen, sire) {
+  if (sire === "ayam" && hen === "leghorn") return { breed: "zombie", mix: false };
+  if (sire === "ayam" && hen === "wyandotte") return { breed: "mime", mix: false };
+  return { breed: hen, mix: hen !== sire };
+}
+const SPECIAL = { zombie: ["🧟 Zombie Chicken chick", "Fun nickname for an Ayam Cemani x Leghorn cross. Rare!", 25], mime: ["🎭 Mime chicken chick", "Mime chicken — a homegrown Ayam Cemani x Laced Wyandotte cross (not an official breed). Rare!", 28] };
+const chickName = c => SPECIAL[c.breed] ? SPECIAL[c.breed][0] : `${CH[c.breed].name}${c.mix ? " mix" : ""} chick`;
+const henValue = h => Math.max(isOld(h) ? 4 : 8, Math.round(CH[h.breed].price * 0.6 * (0.5 + h.health / 200) * (isOld(h) ? 0.5 : 1) * (h.mix ? 0.6 : 1)));
+const CULL_VALUE = 5;
+const chickValue = c => SPECIAL[c.breed] ? SPECIAL[c.breed][2] : Math.min(12, 6 + Math.round(CH[c.breed].price / 12)) - (c.mix ? 1 : 0);
 const tilesOf = t => S.grid.map((g, i) => g && g.type === t ? i : -1).filter(i => i >= 0);
 const has = t => tilesOf(t).length > 0;
 const isNight = () => S.hour >= 20 || S.hour < 6;
@@ -107,6 +141,8 @@ function renderTools() {
 function renderGrid() {
   $("#grid").innerHTML = S.grid.map((g, i) => {
     let inner = g ? ART[g.type](g.type === "coop" && S.locked) : "";
+    if (g && g.type === "coop") inner += `<div class="badge">Lv${S.coopLvl + 1}</div>`;
+    if (g && g.type === "incubator" && (S.incub.length || S.chicks.length)) inner += `<div class="badge">${S.chicks.length ? "🐣" + S.chicks.length : "🥚" + S.incub.length}</div>`;
     if (g && g.type === "coop" && S.locked && S.hens.length) inner += `<div style="position:absolute;top:-4px;right:2px;font-size:15px">💤</div>`;
     if (g && g.type === "feeder") inner += `<div class="lvl feed"><i style="width:${g.lvl}%"></i></div>`;
     if (g && g.type === "waterer") inner += `<div class="lvl"><i style="width:${g.lvl}%"></i></div>`;
@@ -115,13 +151,15 @@ function renderGrid() {
   }).join("");
 }
 function renderHens() {
-  $("#hens").innerHTML = S.hens.map(h => {
+  const roo = S.rooster && !(S.locked && has("coop")) ? `<div class="hen roo ${S.rooster.flip ? "flip" : ""}" data-roo="1" style="left:${S.rooster.x}%;top:${S.rooster.y}%">${rooSVG()}</div>` : "";
+  $("#hens").innerHTML = roo + S.hens.map(h => {
     const mood = h.health < 35 ? "🤒" : h.happy < 35 ? "😤" : h.happy > 75 ? "💛" : "";
     const inside = S.locked && has("coop");
     return `<div class="hen ${h.flip ? "flip" : ""}" data-h="${h.id}" style="${inside ? "opacity:0;pointer-events:none;" : ""}left:${h.x}%;top:${h.y}%"><span class="mood">${mood}</span>${henSVG(h.breed)}</div>`;
   }).join("");
-  $("#henbar").innerHTML = S.hens.map(h => `<div class="hencard">${henSVG(h.breed)}<div><b>${h.name}</b> <span style="opacity:.6">${CH[h.breed].name}</span>
-   <div class="bar"><i style="width:${h.health}%;background:#e57373"></i></div><div class="bar"><i style="width:${h.happy}%;background:#ffca28"></i></div></div></div>`).join("") || `<div class="hencard">No hens yet. Visit the 🛒 Shop!</div>`;
+  $("#henbar").innerHTML = (S.hens.map(h => `<div class="hencard" data-card="${h.id}">${henSVG(h.breed)}<div><b>${h.name}</b> <span style="opacity:.6">${breedLabel(h)}</span>${isOld(h) ? ` <span class="old">older</span>` : ""}
+   <div class="bar"><i style="width:${h.health}%;background:#e57373"></i></div><div class="bar"><i style="width:${h.happy}%;background:#ffca28"></i></div></div></div>`).join("") || `<div class="hencard">No hens yet. Visit the 🛒 Shop!</div>`)
+   + (S.rooster ? `<div class="hencard" data-card="roo">${rooSVG()}<div><b>${S.rooster.name}</b> <span style="opacity:.6">${ROOS[S.rooster.breed].name}</span></div></div>` : "");
 }
 function renderHUD() {
   $("#coins").textContent = S.coins; $("#day").textContent = S.day;
@@ -129,6 +167,7 @@ function renderHUD() {
   $("#clockIcon").textContent = isNight() ? "🌙" : "☀️";
   $("#weather").textContent = S.weather.join(" ");
   $("#basketN").textContent = S.basket.length;
+  $("#capN").textContent = `${S.hens.length}/${capacity()}`;
   $("#feedN").textContent = S.feed; $("#cleanN").textContent = Math.round(S.clean) + "%";
   $("#cleanStat").classList.toggle("warn", S.clean < 30); $("#feedStat").classList.toggle("warn", S.feed < 2);
   const lb = $("#lockBtn"); lb.textContent = S.locked ? "🔒 Locked" : "🔓 Coop open"; lb.classList.toggle("locked", S.locked);
@@ -143,7 +182,7 @@ function tilePos(i) { return { x: (i % COLS) / COLS * 100 + 1, y: Math.floor(i /
 function wander() {
   const coop = tilesOf("coop")[0];
   const runs = tilesOf("run");
-  S.hens.forEach(h => {
+  const move = h => {
     let p;
     if ((isNight() || S.locked) && coop !== undefined) p = tilePos(coop), p.x += Math.random() * 6, p.y += Math.random() * 4;
     else {
@@ -151,7 +190,8 @@ function wander() {
       p = tilePos(rnd(spots)); p.x += Math.random() * 4; p.y += Math.random() * 4;
     }
     h.flip = p.x < h.x; h.x = p.x; h.y = p.y;
-  });
+  };
+  S.hens.forEach(move); if (S.rooster) move(S.rooster);
   renderHens();
 }
 
@@ -191,6 +231,7 @@ function tick() {
   if (S.hour === 13) hawkCheck();
   if (S.hour === 20 && !S.locked) say(has("coop") ? "The hens just... went to bed by themselves? At 8pm? Icons. <i>Tip: lock the coop at night!</i>" : "It's dark and my hens have nowhere to sleep. <i>Tip: build a coop.</i>", 1);
   if (S.hour === 23) raccoonCheck();
+  if (S.hour === 5 && S.rooster) { if (!S.said.crow) { S.said.crow = 1; say(`${S.rooster.name} just screamed at 5am. Is he okay?? The neighbors left a note. <i>Tip: roosters crow at dawn (and whenever they feel like it). Hens lay without a rooster, but you need one for fertile eggs that hatch into chicks.</i>`, 1); } else toast(`🐓 ${S.rooster.name}: COCK-A-DOODLE-DOO!`); }
   if (S.hour === 6 && S.locked) say("Morning! Time to unlock the coop and let the ladies out.", 1);
   S.hens = S.hens.filter(h => {
     if (h.health > 0) return true;
@@ -201,7 +242,9 @@ function tick() {
 }
 function newDay() {
   S.day++; S.weather = rnd(WEATHER);
-  if (has("coop")) S.clean = Math.max(0, S.clean - 6 * Math.max(1, S.hens.length));
+  if (has("coop")) S.clean = Math.max(0, S.clean - 6 * COOPS[S.coopLvl].dirt * Math.max(1, S.hens.length));
+  S.hens.forEach(h => { h.age = (h.age || 0) + 1; if (h.age === OLD_AGE) sayOnce("old" + h.id, `${h.name} is slowing down on eggs. Is she... retiring? <i>Tip: hens lay best in their first couple of years, then lay fewer eggs each year.</i>`, 1); });
+  incubateDay();
   if (S.feed < 2) sayOnce("lowfeed" + S.day, "The feed bag is almost empty. <i>Tip: buy a bag of layer feed in the Shop before it runs out.</i>", 1);
   if (S.weather[1] === "Cold") sayOnce("cold", "It's freezing! Do chickens wear sweaters? <i>Tip: a draft-free coop keeps hens warm. No sweaters needed.</i>", 1);
 }
@@ -209,10 +252,10 @@ function layEggs() {
   const nests = tilesOf("nest");
   S.hens.forEach(h => {
     const ok = h.health > 40 && h.happy > 35 && !(S.locked && !has("nest"));
-    const rate = CH[h.breed].layRate * (S.weather[1] === "Cold" ? 0.6 : 1);
+    const rate = CH[h.breed].layRate * (S.weather[1] === "Cold" ? 0.6 : 1) * (isOld(h) ? 0.5 : 1);
     if (!ok || Math.random() > rate) return;
     let tile = nests.length ? rnd(nests) : rnd([...Array(N).keys()].filter(i => !S.grid[i]));
-    S.ground.push({ tile, color: h.egg, breed: h.breed, hen: h.name });
+    S.ground.push({ tile, color: h.egg, breed: h.breed, hen: h.name, fertile: !!S.rooster, sire: S.rooster && S.rooster.breed });
     if (!nests.length) sayOnce("hidden", "I found an egg... in a bush?! <i>Tip: give them a nest box so they lay where you can find them.</i>", 1);
   });
   if (S.ground.length) sayOnce("rooster", "WAIT. We got eggs but I don't have a rooster?! <i>Fact: hens lay eggs without a rooster. Roosters only matter if you want chicks.</i>", 1);
@@ -244,12 +287,15 @@ $("#grid").addEventListener("click", e => {
     if (g && g.type === "feeder") { if (S.feed < 1) { say("The feed bag is empty! <i>Tip: buy a bag of layer feed in the 🛒 Shop under Supplies.</i>", 1); return toast("Out of feed! Buy some in the Shop."); } S.feed--; g.lvl = 100; floatAt(i, "-1 scoop 🌾"); }
     else if (g && g.type === "waterer") { g.lvl = 100; floatAt(i, "💧 full"); }
     else if (g && g.type === "coop") return toggleLock();
+    else if (g && g.type === "incubator") return incubatorModal();
     return renderAll();
   }
-  if (tool === "bulldoze") { if (g) { S.coins += Math.floor(ITEMS[g.type].cost / 2); S.grid[i] = null; floatAt(i, "removed"); renderAll(); } return; }
+  if (tool === "bulldoze") { if (g && g.type === "incubator" && (S.incub.length || S.chicks.length)) return toast("Empty the incubator first");
+    if (g && g.type === "coop" && S.coopLvl) { S.coopLvl = 0; toast("Coop removed. Upgrades lost."); }
+    if (g) { S.coins += Math.floor(ITEMS[g.type].cost / 2); S.grid[i] = null; floatAt(i, "removed"); renderAll(); } return; }
   if (g) return toast("Something's already there");
   const it = ITEMS[tool];
-  if (it.max && tilesOf(tool).length >= it.max) return toast("One coop is plenty for now");
+  if (it.max && tilesOf(tool).length >= it.max) return toast(`One ${it.name.toLowerCase()} is plenty for now`);
   if (S.coins < it.cost) return toast("Not enough coins. Sell some eggs!");
   S.coins -= it.cost; S.grid[i] = { type: tool, lvl: 100 }; floatAt(i, `-${it.cost}🪙`);
   if (!S.said["built_" + tool]) { S.said["built_" + tool] = 1; say(`${it.joke} <i>${it.tip}</i>`, 1); }
@@ -269,7 +315,10 @@ function toggleLock() {
 }
 $("#lockBtn").onclick = toggleLock;
 $("#speedBtn").onclick = () => { S.speed = { 1: 2, 2: 4, 4: 0, 0: 1 }[S.speed]; renderHUD(); loop(); };
-$("#hens").addEventListener("click", e => { const el = e.target.closest(".hen"); if (!el) return; const h = S.hens.find(x => x.id == el.dataset.h);
+$("#henbar").addEventListener("click", e => { const c = e.target.closest("[data-card]"); if (!c) return; c.dataset.card === "roo" ? roosterModal() : henModal(c.dataset.card); });
+$("#hens").addEventListener("click", e => { const el = e.target.closest(".hen"); if (!el) return;
+  if (el.dataset.roo) return say(`<b>${S.rooster.name}</b> the ${ROOS[S.rooster.breed].name}: ${ROOS[S.rooster.breed].blurb} <i>${ROO_FACT}</i>`, 1);
+  const h = S.hens.find(x => x.id == el.dataset.h);
   say(`<b>${h.name}</b> the ${CH[h.breed].name}: ${CH[h.breed].blurb} <i>${CH[h.breed].fact}</i>`, 1); });
 
 /* ---------- SELL / SHOP / SHARE ---------- */
@@ -285,17 +334,24 @@ $("#sellBtn").onclick = () => {
 window.sellAll = () => { const t = S.basket.reduce((a, e) => a + EGG_COLORS[e.color].value, 0); S.coins += t; S.basket = []; closeModal(); toast(`Sold! +${t}🪙`); renderAll(); };
 let shopTab = "hens";
 function shop() {
-  const tabs = `<div class="tabs">${[["hens","🐔 Hens"],["supplies","🌾 Supplies"],["premium","⭐ Extras"],["quiz","❓ Quiz"]].map(([k,l])=>`<button class="${shopTab===k?"on":""}" onclick="shopTab('${k}')">${l}</button>`).join("")}</div>`;
+  const tabs = `<div class="tabs">${[["hens","🐔 Hens"],["coop","🏠 Coop"],["supplies","🌾 Supplies"],["premium","⭐ Extras"],["quiz","❓ Quiz"]].map(([k,l])=>`<button class="${shopTab===k?"on":""}" onclick="shopTab('${k}')">${l}</button>`).join("")}</div>`;
   let body = "";
   if (shopTab === "hens") {
-    body = Object.entries(CH).map(([k, b]) => `<div class="row">${henSVG(k)}<div class="t"><b>${b.name}</b> lays ${b.eggs.map(c => EGG_COLORS[c].label.toLowerCase()).join(" or ")}<br>${b.blurb}</div>
+    body = Object.entries(CH).filter(([k, b]) => !b.hatchOnly).map(([k, b]) => `<div class="row">${henSVG(k)}<div class="t"><b>${b.name}</b> lays ${b.eggs.map(c => EGG_COLORS[c].label.toLowerCase()).join(" or ")}<br>${b.blurb}</div>
       <button class="buy" ${S.coins < b.price ? "disabled" : ""} onclick="buyHen('${k}')">${b.price ? b.price + "🪙" : "Free"}</button></div>`).join("")
+      + `<p style="margin-top:10px"><b>🐓 Roosters</b> (max 1, no eggs, needed for chicks)</p>` + Object.entries(ROOS).map(([k, r]) => `<div class="row">${henSVG("roo:" + k)}<div class="t"><b>${r.name}</b><br>${r.blurb}</div>
+      <button class="buy" ${S.coins < r.price || S.rooster ? "disabled" : ""} onclick="buyRooster('${k}')">${S.rooster && S.rooster.breed === k ? "Owned" : r.price + "🪙"}</button></div>`).join("")
       + Object.values(SPECIES).filter(s => s.comingSoon).map(s => `<div class="row" style="opacity:.6"><span style="font-size:36px">${s.icon}</span><div class="t"><b>${s.name} 🔒</b><br>${s.teaser}</div></div>`).join("");
+  } else if (shopTab === "coop") {
+    body = `<p>🏠 ${has("coop") ? `<b>${COOPS[S.coopLvl].name}</b> (level ${S.coopLvl + 1})` : "<b>No coop built</b>"} · 🐔 ${S.hens.length}/${capacity()} hens</p>`
+      + COOPS.map((c, i) => `<div class="row"><span style="font-size:30px">${["🛖","🏠","🏚️"][i]}</span><div class="t"><b>${c.name}</b> · ${c.cap} hens<br>${i ? `Stays clean ${Math.round((1 - c.dirt) * 100)}% longer.` : "Where every city chicken starts."}</div>
+        ${i <= S.coopLvl ? `<button class="buy" disabled>${i === S.coopLvl ? "Yours" : "✓"}</button>` : i === S.coopLvl + 1 ? `<button class="buy" ${S.coins < c.cost || !has("coop") ? "disabled" : ""} onclick="upgradeCoop()">${c.cost}🪙</button>` : `<button class="buy" disabled>🔒 ${c.cost}🪙</button>`}</div>`).join("")
+      + `<p style="font-size:12px"><i>Tip:</i> without a coop you can keep 3 hens. Upgrade one level at a time.</p>`;
   } else if (shopTab === "supplies") {
     body = `<p>🌾 Feed: <b>${S.feed}</b> scoops · 🧹 Coop: <b>${Math.round(S.clean)}%</b> clean</p>` + SUPPLIES.map(([k, t, d, p]) => `<div class="row"><div class="t"><b>${t}</b><br>${d}</div><button class="buy" ${S.coins < p ? "disabled" : ""} onclick="buySupply('${k}')">${p}🪙</button></div>`).join("");
   } else if (shopTab === "premium") {
     const P = [["twin","🏡 Twin with a real farm hen","Your hen is paired with a real hen on a small farm. Her real laying drives your eggs, plus weekly photos.","$4.99/mo"],
-      ["pack","🌈 Rare breed pack","Unlock every breed instantly, including Marans and Ayam Cemani.","$2.99"],
+      ["pack","🌈 Rare breed pack","Unlock every shop breed instantly, including Marans and Ayam Cemani.","$2.99"],
       ["disco","🪩 Disco coop skin","Cosmetic only. Hens remain unimpressed.","$0.99"],
       ["realeggs","📦 Real eggs from the farm","Order a dozen real eggs from the farm, for pickup or local delivery.","$7/dozen"]];
     body = `<span class="demo">DEMO: no real payments. Buttons just show how it would work.</span>` + P.map(([k,t,d,p]) => `<div class="row"><div class="t"><b>${t}</b><br>${d}</div><button class="buy real" onclick="mockPay('${t}','${p}')">${S.premium[k]?"✓":p}</button></div>`).join("");
@@ -316,7 +372,13 @@ window.buySupply = k => { const it = SUPPLIES.find(x => x[0] === k); if (S.coins
   if (k === "oyster") { S.hens.forEach(h => h.health = Math.min(100, h.health + 10)); toast("Hens got their calcium"); sayOnce("oyster", "I'm feeding them... seashells? <i>Fact: laying hens need extra calcium, and crushed oyster shell is a common source.</i>", 1); }
   shop(); renderAll(); };
 window.shopTab = k => { shopTab = k; shop(); };
-window.buyHen = k => { const b = CH[k]; if (S.coins < b.price) return; if (S.hens.length >= 6) return toast("Coop is full (6 hens max)"); S.coins -= b.price; addHen(k); closeModal(); toast(`Welcome, ${S.hens.at(-1).name} the ${b.name}!`); say(`New hen! ${b.fact}`, 1); renderAll(); wander(); };
+window.upgradeCoop = () => { const n = S.coopLvl + 1, c = COOPS[n]; if (!c || !has("coop")) return toast("Build a coop first!"); if (S.coins < c.cost) return toast("Not enough coins. Sell some eggs!");
+  S.coins -= c.cost; S.coopLvl = n; toast(`Upgraded to ${c.name}! Room for ${c.cap} hens.`); say(`${c.joke} <i>Tip: ${c.tip}</i>`, 1); shop(); renderAll(); };
+window.buyRooster = k => { const r = ROOS[k]; if (S.rooster) return toast("One rooster is plenty. Trust the neighbors on this.");
+  if (S.coins < r.price) return toast("Not enough coins. Sell some eggs!");
+  S.coins -= r.price; S.rooster = { name: k === "ayam" ? "Vlad" : "Kevin", breed: k, x: 45, y: 45, flip: false }; closeModal(); toast(`Welcome, ${S.rooster.name} the ${r.name}!`);
+  say(`I got a rooster named ${S.rooster.name}. He is VERY confident. <i>Fact: ${ROO_FACT} From now on your eggs are fertile. Same-breed pairs hatch purebred chicks; other pairs hatch mixes.</i>`, 1); renderAll(); wander(); };
+window.buyHen = k => { const b = CH[k]; if (S.coins < b.price) return; if (S.hens.length >= capacity()) return toast(`Coop is full (${capacity()} hens max). Upgrade it in the Shop!`); S.coins -= b.price; addHen(k); closeModal(); toast(`Welcome, ${S.hens.at(-1).name} the ${b.name}!`); say(`New hen! ${b.fact}`, 1); renderAll(); wander(); };
 window.mockPay = (t, p) => modal(`<h2>Demo checkout</h2><p><b>${t}</b> · ${p}</p><p class="demo">This is a prototype. No payment is taken.</p><button class="buy big" onclick="shopTab('premium')">Back to shop</button>`);
 window.answer = i => { const q = QUIZ[S.quizI % QUIZ.length]; const right = i === q[2]; if (right) S.coins += 3;
   document.getElementById("qa").innerHTML = `${right ? "✅ Correct! +3🪙" : "❌ Not quite."} ${q[3]}<br><button class="buy big" onclick="nextQ()">Next question</button>`; renderHUD(); };
@@ -333,6 +395,78 @@ window.shareCard = e => {
    <button class="act big" onclick="closeModal()">Back to the yard</button>`);
 };
 window.toast = toast;
+
+/* ---------- HEN DETAILS: SELL / CULL ---------- */
+function henModal(id) {
+  const h = S.hens.find(x => x.id == id); if (!h) return;
+  const b = CH[h.breed];
+  modal(`<h2>${h.name}</h2><div style="width:90px;margin:0 auto">${henSVG(h.breed)}</div>
+   <p><b>${breedLabel(h)}</b> · lays ${b.eggs.map(c => EGG_COLORS[c].label.toLowerCase()).join(" or ")}</p>
+   <p>Age: <b>${h.age || 0}</b> days${isOld(h) ? ` · <span class="old">older</span> (lays half as often)` : ""}<br>Health ${Math.round(h.health)}% · Happiness ${Math.round(h.happy)}%</p>
+   <p style="font-size:13px">${b.fact}</p>
+   <button class="buy big" onclick="confirmHen('${h.id}','sell')">🤝 Sell to a neighbor · ${henValue(h)}🪙</button>
+   <button class="buy big cull" onclick="confirmHen('${h.id}','cull')">🧊 Freezer camp · ${CULL_VALUE}🪙</button>
+   <button class="act big" onclick="closeModal()">Keep her</button>`);
+}
+window.confirmHen = (id, what) => {
+  const h = S.hens.find(x => x.id == id); if (!h) return;
+  const last = S.hens.length === 1 ? `<p class="demo">⚠️ ${h.name} is your last hen. Your yard will be empty.</p>` : "";
+  const txt = what === "sell" ? `Sell ${h.name} to a neighbor for ${henValue(h)}🪙?` : `Send ${h.name} to freezer camp for ${CULL_VALUE}🪙?`;
+  modal(`<h2>Are you sure?</h2><p>${txt}</p>${last}<button class="buy big ${what === "cull" ? "cull" : ""}" onclick="doHen('${h.id}','${what}')">Yes, ${what === "sell" ? "sell her" : "do it"}</button><button class="act big" onclick="henModal('${h.id}')">Cancel</button>`);
+};
+window.doHen = (id, what) => {
+  const h = S.hens.find(x => x.id == id); if (!h) return closeModal();
+  const v = what === "sell" ? henValue(h) : CULL_VALUE;
+  S.hens = S.hens.filter(x => x !== h); S.coins += v; closeModal();
+  if (what === "sell") { toast(`Sold ${h.name}! +${v}🪙`); say(`My neighbor Deb took ${h.name}. She has a real farm and real boots. <i>Tip: hens are flock animals, so they settle in best with other chickens.</i>`, 1); }
+  else { toast(`${h.name} went to freezer camp. +${v}🪙`); say(`I... made chicken soup. I need a minute. 🥣 <i>Tip: on small farms, older hens that stop laying are often culled for stew. It's part of raising your own food.</i>`, 1); }
+  renderAll();
+};
+window.henModal = henModal;
+function roosterModal() {
+  if (!S.rooster) return;
+  const r = ROOS[S.rooster.breed];
+  modal(`<h2>${S.rooster.name} the rooster</h2><div style="width:90px;margin:0 auto">${rooSVG()}</div><p><b>${r.name}</b> · ${r.blurb}</p><p style="font-size:13px"><i>${ROO_FACT}</i></p>
+   <button class="buy big" onclick="confirmRooster()">🤝 Rehome him with a neighbor · 15🪙</button><button class="act big" onclick="closeModal()">Keep him</button>`);
+}
+window.confirmRooster = () => modal(`<h2>Are you sure?</h2><p>Rehome ${S.rooster.name} for 15🪙? New eggs won't be fertile without him.</p><button class="buy big" onclick="rehomeRooster()">Yes, rehome him</button><button class="act big" onclick="closeModal()">Cancel</button>`);
+window.rehomeRooster = () => { const n = S.rooster.name; S.rooster = null; S.coins += 15; closeModal(); toast(`${n} moved to a farm. +15🪙`); say("It's so quiet at 5am now. I almost miss him. Almost.", 1); renderAll(); };
+
+/* ---------- INCUBATOR / NURSERY ---------- */
+function incubateDay() {
+  S.incub.forEach(e => e.days--);
+  const done = S.incub.filter(e => e.days <= 0); S.incub = S.incub.filter(e => e.days > 0);
+  let born = 0, duds = 0;
+  done.forEach(e => { if (Math.random() < HATCH_RATE) { born++; S.hatched++; const c = chickOf(e.breed, e.sire); S.chicks.push({ id: Math.random(), ...c, age: 0 });
+    if (c.breed === "zombie") sayOnce("zombie", `A ZOMBIE CHICKEN! It's black with white patches and it's adorable. <i>${CH.zombie.fact}</i>`, 1);
+    if (c.breed === "mime") sayOnce("mime", `It hatched and didn't make a single sound. Just stared at me. Then... peep. It's a Mime chicken! 🎭 <i>${CH.mime.fact}</i>`, 1); } else { duds++; S.duds++; } });
+  if (done.length) { toast(`🐣 ${born} chick${born === 1 ? "" : "s"} hatched${duds ? `, ${duds} egg${duds === 1 ? "" : "s"} didn't` : ""}!`);
+    sayOnce("hatch", `THEY'RE ALIVE! Tiny peeping fluff balls! <i>Tip: not every egg hatches. Home incubator hatch rates vary a lot, and many backyard keepers are happy with 70-80%.</i>`, 1); }
+  const grown = [];
+  S.chicks.forEach(c => { c.age++; if (c.age >= CHICK_GROW_DAYS) { if (S.hens.length < capacity()) { addHen(c.breed, false, c.mix); grown.push(c); } else sayOnce("nursefull" + S.day, "A chick is all grown up but the coop is full! <i>Tip: upgrade your coop in the Shop, or sell a chick.</i>", 1); } });
+  if (grown.length) { S.chicks = S.chicks.filter(c => !grown.includes(c)); toast(`${grown.length} chick${grown.length > 1 ? "s" : ""} grew up and joined the flock!`);
+    sayOnce("grewup", `My baby is a hen now. I'm not crying, you're crying. <i>Tip: most breeds can't be sexed at hatch (auto-sexing breeds like Cream Legbar are the exception), so real hatches are about half roosters. In this game, all chicks are pullets.</i>`, 1); }
+}
+function incubatorModal() {
+  const fert = S.basket.filter(e => e.fertile).length, room = INCUBATOR_CAP - S.incub.length;
+  const slots = S.incub.map(e => `<div class="slot">${eggSVG(e.color, CH[e.breed].speckled)}<small>${e.days}d</small></div>`).join("") + Array(room).fill(`<div class="slot empty"></div>`).join("");
+  const nursery = S.chicks.map(c => `<div class="row">${SPECIAL[c.breed] ? `<div class="chickart">${henSVG(c.breed)}</div>` : `<span style="font-size:30px">🐥</span>`}<div class="t"><b>${chickName(c)}</b>${SPECIAL[c.breed] ? `<br><small>${SPECIAL[c.breed][1]}</small>` : ""}<br>Raising · grows up in ${Math.max(0, CHICK_GROW_DAYS - c.age)} day${CHICK_GROW_DAYS - c.age === 1 ? "" : "s"}</div><button class="buy" onclick="sellChick('${c.id}')">Sell ${chickValue(c)}🪙</button></div>`).join("") || `<p style="font-size:13px;opacity:.7">No chicks yet.</p>`;
+  modal(`<h2>🥚 Incubator</h2><p>${S.incub.length}/${INCUBATOR_CAP} eggs · hatches in ${INCUBATE_DAYS} game days</p><div class="slots">${slots}</div>
+   ${S.rooster ? "" : `<p class="demo">No rooster, no chicks. Buy a rooster in the 🛒 Shop so new eggs are fertile.</p>`}
+   <button class="buy big" ${fert && room ? "" : "disabled"} onclick="loadIncubator()">Add fertile eggs from basket (${fert})</button>
+   <p style="font-size:12px"><i>Tip:</i> real chicken eggs take about 21 days to hatch, kept at about 99.5°F with the right humidity and turned several times a day. Coop City speeds that up to ${INCUBATE_DAYS} days.</p>
+   <h3 style="margin:10px 0 0">🐣 Nursery</h3>${nursery}
+   <p style="font-size:12px">Chicks join the flock after ${CHICK_GROW_DAYS} days if the coop has room (${S.hens.length}/${capacity()}).</p>
+   <button class="act big" onclick="closeModal()">Close</button>`);
+}
+window.incubatorModal = incubatorModal;
+window.loadIncubator = () => { let n = 0;
+  S.basket = S.basket.filter(e => { if (e.fertile && S.incub.length < INCUBATOR_CAP) { S.incub.push({ color: e.color, breed: e.breed, sire: e.sire, days: INCUBATE_DAYS }); n++; return false; } return true; });
+  toast(`${n} egg${n === 1 ? "" : "s"} in the incubator`); sayOnce("incub", "I'm basically a chicken dad now. Do I need to sit on them? <i>Tip: the incubator does the hen's job: steady heat, humidity, and turning.</i>", 1);
+  incubatorModal(); renderAll(); };
+window.sellChick = id => { const c = S.chicks.find(x => x.id == id); if (!c) return; const v = chickValue(c);
+  S.chicks = S.chicks.filter(x => x !== c); S.coins += v; toast(`Sold a chick! +${v}🪙`);
+  sayOnce("chicksale", "A family bought a chick for their kids. It's like a tiny adoption. <i>Tip: chicks need a warm brooder for their first few weeks.</i>", 1); incubatorModal(); renderAll(); };
 
 /* ---------- START ---------- */
 function title() {
@@ -351,7 +485,7 @@ function step() { tick(); if (S.speed) timer = setTimeout(step, hourMs()); }
 function loop() { clearTimeout(timer); clearInterval(timer); if (S.speed) timer = setTimeout(step, hourMs()); clearInterval(wtimer); wtimer = setInterval(wander, 2600); }
 $("#guyArt").innerHTML = guySVG;
 
-// Demo states for screenshots: ?demo=yard|night|shop|share
+// Demo states for screenshots: ?demo=yard|night|shop|hensshop|coopshop|henmodal|incubator|share|title
 const demo = new URLSearchParams(location.search).get("demo");
 fresh("leghorn"); renderTools();
 if (!demo) { renderAll(); say("Welcome to Coop City!"); title(); }
@@ -365,13 +499,23 @@ else {
   S.ground = [{ tile: 8, color: "blue", breed: "easter", hen: S.hens[1].name }, { tile: 8, color: "white", breed: "leghorn", hen: S.hens[0].name }, { tile: 22, color: "chocolate", breed: "marans", hen: S.hens[2].name }];
   S.collection = { white: 5, brown: 3, cream: 1, chocolate: 2 }; S.basket = [{color:"white"},{color:"white"},{color:"cream"},{color:"chocolate"}]; S.lifetime = 11;
   S.hour = 9; S.hens.forEach((h, k) => { const p = tilePos([19,20,26,27][k]); h.x = p.x + 2; h.y = p.y; h.flip = k % 2; });
-  S.hens[3].happy = 90; S.hens[2].happy = 30;
+  S.hens[3].happy = 90; S.hens[2].happy = 30; S.coopLvl = 1;
+  S.hens.forEach((h, k) => h.age = [12, 6, 23, 3][k]);
   say("WAIT. We got eggs but I don't have a rooster?! <i>Fact: hens lay eggs without a rooster. Roosters only matter if you want chicks.</i>", 1);
   if (demo === "night") { S.hour = 23; S.locked = true; S.weather = WEATHER[4]; S.ground = []; S.hens.forEach(h => { const p = tilePos(7); h.x = p.x + Math.random()*6; h.y = p.y + Math.random()*4; });
     say("Ha! The raccoon rattled the door and left. Locking up works! <i>Tip: raccoons hunt at night, so lock the coop every evening.</i>", 1); }
   renderAll();
   if (demo === "night") { const el = document.createElement("div"); el.className = "predator"; el.textContent = "🦝"; const p = tilePos(13); el.style.left = p.x + "%"; el.style.top = p.y + "%"; $("#fx").appendChild(el); toast("A raccoon tried the coop door. Locked. Nice!"); }
-  if (demo === "shop") shop();
+  if (demo === "shop" || demo === "hensshop") shop();
+  if (demo === "coopshop") { S.coins = 72; shopTab = "coop"; shop(); }
+  if (demo === "henmodal") henModal(S.hens[2].id);
+  if (demo === "incubator") {
+    put("incubator", 9); S.rooster = { name: "Vlad", breed: "ayam", x: 50, y: 60, flip: true };
+    S.incub = [{ color: "white", breed: "leghorn", sire: "ayam", days: 2 }, { color: "brown", breed: "wyandotte", sire: "ayam", days: 2 }, { color: "blue", breed: "easter", sire: "ayam", days: 1 }, { color: "chocolate", breed: "marans", sire: "ayam", days: 3 }];
+    S.chicks = [{ id: 1, breed: "zombie", mix: false, age: 1 }, { id: 2, breed: "mime", mix: false, age: 2 }, { id: 3, breed: "easter", mix: true, age: 0 }];
+    S.basket.push({ color: "white", breed: "leghorn", fertile: true, sire: "ayam" });
+    renderAll(); incubatorModal();
+  }
   if (demo === "share") shareCard({ color: "cream", breed: "ayam", hen: S.hens[3].name, tile: 0 });
   if (demo === "title") title();
 }

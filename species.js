@@ -16,10 +16,28 @@ window.SPECIES = {
         art: { body: "#f4f4f4", wing: "#e2e2e2", comb: "#e53935", combSize: 0.7, pattern: "laced", legs: "#f6c343", beak: "#f2b134" },
         blurb: "Fluffy, laced feathers. Handles cold like a champ.",
         fact: "Wyandottes lay brown eggs and have a small rose comb that resists frostbite." },
+      lavender: { name: "Lavender Orpington", price: 40, layRate: 0.6, eggs: ["lightbrown"],
+        art: { body: "#b7adc7", wing: "#a297b5", comb: "#e53935", fluffy: true, legs: "#d8cfc0", beak: "#e8d9b5" },
+        blurb: "A giant lavender pillow with legs. Loves hugs. Mostly.",
+        fact: "Lavender Orpingtons are big, fluffy, docile hens with soft lavender-grey feathers. They lay light brown eggs." },
       easter: { name: "Easter Egger", price: 45, layRate: 0.7, eggs: ["blue", "green"],
         art: { body: "#b98657", wing: "#8d5d36", comb: "#e57373", combSize: 0.6, muffs: true, legs: "#9aa38f", beak: "#c9a26b" },
         blurb: "Has a beard. Lays pastel eggs. Very Instagram.",
         fact: "Easter Eggers lay blue or green eggs. Each hen sticks to her own shade." },
+      legbar: { name: "Cream Legbar", price: 55, layRate: 0.65, eggs: ["blue"],
+        art: { body: "#e9e2d0", wing: "#c8bba2", comb: "#e53935", crest: "#d9cdb4", legs: "#f6c343", beak: "#f2b134" },
+        blurb: "Has a little feather hat. Lays sky-blue eggs. Very fashion.",
+        fact: "Cream Legbars lay blue eggs and are auto-sexing: you can tell boy and girl chicks apart by their down color at hatch." },
+      // Hatch-only: not sold in the shop. Bill's nickname for an Ayam Cemani rooster x Leghorn hen cross.
+      zombie: { name: "Zombie Chicken", price: 50, layRate: 0.7, eggs: ["white", "cream"], hatchOnly: true,
+        art: { body: "#1e1e1e", wing: "#2a2a2a", comb: "#5a2f3c", pattern: "patchy", face: "#3a3a3a", legs: "#4a4a4a", beak: "#555", eye: "#111" },
+        blurb: "Mostly black with spooky white patches. Rare hatch!",
+        fact: "\"Zombie Chicken\" is a fun nickname for an Ayam Cemani x Leghorn cross. Crossbred chicks vary, and the Ayam Cemani's all-black skin and organs (fibromelanosis) don't reliably pass on in a cross. Egg color varies in crosses too: usually white or cream." },
+      // Hatch-only: Bill's homegrown Ayam Cemani rooster x Laced Wyandotte hen cross. Not an official breed.
+      mime: { name: "Mime chicken", price: 55, layRate: 0.65, eggs: ["brown", "cream"], hatchOnly: true,
+        art: { body: "#1c1c1c", wing: "#262626", comb: "#4a2633", combSize: 0.7, pattern: "darklaced", face: "#2e2e2e", legs: "#3e3e3e", beak: "#4a4a4a", eye: "#111" },
+        blurb: "Black-and-white lacing, like a tiny mime. Homegrown!",
+        fact: "The \"Mime\" chicken is a homegrown Ayam Cemani x Laced Wyandotte cross, not an official recognized breed. Crossbred chicks vary, and so does egg color: usually brown or tinted." },
       marans: { name: "Marans", price: 60, layRate: 0.6, eggs: ["chocolate"], speckled: true,
         art: { body: "#2a2a2a", wing: "#3a3a3a", comb: "#e53935", hackle: "#b8642a", legs: "#cfc9b8", beak: "#d9c49a" },
         blurb: "Copper-necked and fancy. Famous for very dark eggs.",
@@ -28,7 +46,17 @@ window.SPECIES = {
         art: { body: "#141414", wing: "#232323", comb: "#2b1f2e", legs: "#222", beak: "#333", eye: "#111" },
         blurb: "Black feathers, black skin, black comb. Goth icon.",
         fact: "MYTH BUSTED: Ayam Cemanis are black inside and out, but their eggs are cream. Not black!" }
-    }
+    },
+    // Roosters don't lay. One is needed for fertile eggs (chicks). Chick breed = hen x rooster.
+    roosters: {
+      leghorn: { name: "Leghorn rooster", price: 35,
+        art: { body: "#fbfaf3", wing: "#e9e6d8", comb: "#e53935", combSize: 1.6, hackle: "#f3ecd2", tail: "#f4f1e6", tail2: "#e2ddcc", legs: "#f6c343", beak: "#f2b134" },
+        blurb: "Loud, proud, and convinced the sun rises because he yells at it." },
+      ayam: { name: "Ayam Cemani rooster", price: 90,
+        art: { body: "#141414", wing: "#232323", comb: "#2b1f2e", combSize: 1.6, tail: "#101010", tail2: "#1d3a2f", legs: "#222", beak: "#333", eye: "#111" },
+        blurb: "All black, all drama. Looks like he's headed to a goth concert." }
+    },
+    roosterFact: "Hens lay eggs without a rooster. You only need a rooster for fertile eggs that can hatch into chicks."
   },
   pigeon: { name: "Pigeons", icon: "🕊️", product: "egg", available: false, comingSoon: true,
     teaser: "Rooftop pigeon lofts for true city birds. Coming soon!", breeds: {} }
@@ -36,6 +64,7 @@ window.SPECIES = {
 window.EGG_COLORS = {
   white:     { fill: "#f7f4ea", label: "White", value: 2 },
   brown:     { fill: "#c98d5a", label: "Brown", value: 3 },
+  lightbrown:{ fill: "#e0b98e", label: "Light brown", value: 3 },
   cream:     { fill: "#eedfc0", label: "Cream", value: 4 },
   blue:      { fill: "#a8d4e2", label: "Blue", value: 5 },
   green:     { fill: "#a9c49a", label: "Green", value: 5 },
