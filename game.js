@@ -57,8 +57,8 @@ const ART = {
   hand: () => `<svg viewBox="0 0 100 100"><text x="50" y="70" font-size="58" text-anchor="middle">✋</text></svg>`,
   bulldoze: () => `<svg viewBox="0 0 100 100"><text x="50" y="68" font-size="56" text-anchor="middle">🧹</text></svg>`
 };
-const BUILD = "build 11 · kitchen scraps";
-const guySVG = `<svg viewBox="0 0 60 72"><circle cx="30" cy="9" r="6" fill="#5d4037"/><circle cx="30" cy="22" r="13" fill="#f1c7a0"/><path d="M17 18 Q30 4 43 18 Q30 12 17 18Z" fill="#5d4037"/><rect x="18" y="18" width="10" height="6" rx="2" fill="#111"/><rect x="32" y="18" width="10" height="6" rx="2" fill="#111"/><line x1="28" y1="21" x2="32" y2="21" stroke="#111" stroke-width="1.5"/><path d="M25 29 Q30 32 35 29" stroke="#8a4a2a" stroke-width="1.6" fill="none"/><path d="M12 72 V46 Q30 34 48 46 V72Z" fill="#7e57c2"/><path d="M20 38 Q30 46 40 38 L40 44 Q30 50 20 44Z" fill="#ff7043"/><rect x="44" y="48" width="10" height="14" rx="2" fill="#fff" stroke="#795548"/><rect x="44" y="52" width="10" height="4" fill="#8d6e63"/></svg>`;
+const BUILD = "build 12 · feedback";
+const guySVG = `<svg viewBox="0 0 60 72"><path d="M12 72 V47 Q30 35 48 47 V72Z" fill="#2e7d32"/><path d="M12 56 H48 M12 64 H48 M22 42 V72 M38 42 V72" stroke="#1b5e20" stroke-width="2"/><path d="M23 39 L30 47 L37 39Z" fill="#f1c7a0"/><rect x="25" y="33" width="10" height="7" fill="#f1c7a0"/><circle cx="30" cy="22" r="13" fill="#f1c7a0"/><path d="M19 27 Q30 40 41 27 Q41 34 30 36 Q19 34 19 27Z" fill="#6d4c41" opacity=".55"/><path d="M16 21 Q14 7 30 6 Q46 7 44 21 Q42 13 36 12 L33 9 L30 12 L26 9 L23 12 Q18 13 16 21Z" fill="#4e342e"/><rect x="17" y="18" width="11" height="6" rx="2" fill="#111"/><rect x="32" y="18" width="11" height="6" rx="2" fill="#111"/><line x1="28" y1="20" x2="32" y2="20" stroke="#111" stroke-width="1.5"/><path d="M25 29 Q30 32 35 29" stroke="#5d2f1a" stroke-width="1.8" fill="none" stroke-linecap="round"/><rect x="44" y="49" width="10" height="13" rx="2" fill="#fff" stroke="#795548"/><rect x="44" y="52" width="10" height="4" fill="#8d6e63"/></svg>`;
 
 /* ---------- COOP ART PER LEVEL ---------- */
 const lockSVG = (x, y) => `<rect x="${x}" y="${y + 6}" width="12" height="10" rx="2" fill="#ffd54f" stroke="#a07800"/><path d="M${x + 2} ${y + 6} v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#ffd54f" stroke-width="2.4"/>`;
@@ -282,8 +282,8 @@ const isNight = () => S.hour >= 20 || S.hour < 6;
 
 /* ---------- UI helpers ---------- */
 let bubbleTimer;
-let tutHold = 0;
-function say(text, tip, force) { if (!force && S && S.tut < TUT.length && performance.now() < tutHold) return false;
+let tutHold = 0, sayHold = 0; // sayHold: keep the one-time feedback ask readable for a few seconds
+function say(text, tip, force) { if (!force && ((S && S.tut < TUT.length && performance.now() < tutHold) || (performance.now() < sayHold && !threat))) return false;
   $("#bubbleText").innerHTML = text; const b = $("#bubble"); b.classList.toggle("tip", !!tip); b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop");
   b.classList.remove("more"); requestAnimationFrame(() => b.classList.toggle("more", b.scrollHeight > b.clientHeight + 3)); return true; }
 function sayOnce(key, text, tip) { if (S.said[key]) return; if (say(text, tip) !== false) S.said[key] = 1; }
@@ -291,8 +291,10 @@ function sayOnce(key, text, tip) { if (S.said[key]) return; if (say(text, tip) !
 const toastQ = []; let toastBusy = 0, frzOn = 0; // frzOn: a scrap frenzy is running, so badge news waits until it ends
 function toast(t, now, pri) { t = { t, at: performance.now(), now: !!now, pri: !!pri }; if (now) { toastQ.unshift(t); toastBusy = 0; return toastNext(); } if (toastQ.length > 3) toastQ.splice(toastQ.findLastIndex(q => !q.pri) >= 0 ? toastQ.findIndex(q => !q.pri) : 0, 1); // pri: what just happened goes ahead of queued badge news
   if (pri) { const i = toastQ.findIndex(q => !q.pri); toastQ.splice(i < 0 ? toastQ.length : i, 0, t); } else toastQ.push(t); if (!toastBusy) toastNext(); }
+const fbOpen = () => !$("#modal").classList.contains("hidden") && !!$("#modalCard .fbform, #modalCard .fbthanks"); // someone typing feedback: hold news (predator warnings still show)
+function toastPause() { const el = $("#toast"); if (el.classList.contains("on") && !/^⚠️/.test(el.textContent)) { toastQ.unshift({ t: el.textContent, at: performance.now(), now: false, pri: true }); clearTimeout(el._t); el.classList.remove("on"); } toastNext(); }
 function toastNext() { const el = $("#toast"); clearTimeout(toastNext._t);
-  if (toastQ.length && ($("#modalCard .title") || (frzOn && !toastQ[0].now))) { toastQ.forEach(q => q.at = performance.now()); toastBusy = 1; toastNext._t = setTimeout(toastNext, 600); return; } // hold toasts while the title card is up
+  if (toastQ.length && ($("#modalCard .title") || (frzOn && !toastQ[0].now) || (fbOpen() && !/^⚠️/.test(toastQ[0].t)))) { toastQ.forEach(q => q.at = performance.now()); toastBusy = 1; toastNext._t = setTimeout(toastNext, 600); return; } // hold toasts while the title card is up
   let q; while ((q = toastQ.shift()) && performance.now() - q.at > 7000) {} // drop stale news
   if (!q) { toastBusy = 0; return; } toastBusy = 1; const t = q.t;
   const dur = Math.min(4200, 1500 + t.length * 38);
@@ -303,7 +305,7 @@ function floatAt(i, text) {
   $("#fx").appendChild(el); setTimeout(() => el.remove(), 1300);
 }
 function modal(html) { const m = $("#modal"), c = $("#modalCard"); clearTimeout(m._t); m.classList.remove("closing"); c.innerHTML = html; c.scrollTop = 0;
-  if (m.classList.contains("hidden")) { m.classList.remove("hidden"); m.classList.remove("show"); void m.offsetWidth; m.classList.add("show"); } if (S && S.started) requestAnimationFrame(coach); }
+  if (m.classList.contains("hidden")) { m.classList.remove("hidden"); m.classList.remove("show"); void m.offsetWidth; m.classList.add("show"); } if (fbOpen()) toastPause(); if (S && S.started) requestAnimationFrame(coach); }
 function closeModal() { const m = $("#modal"); if (m.classList.contains("hidden") || m.classList.contains("closing")) return; m.classList.add("closing");
   m._t = setTimeout(() => { m.classList.add("hidden"); m.classList.remove("closing", "show"); if (S && S.started) coach(); }, 170); }
 window.closeModal = closeModal;
@@ -598,13 +600,14 @@ function sparkle(x, y) { const layer = $("#fly"); for (let i = 0; i < 7; i++) { 
 window.settingsModal = () => {
   const sw = (on, fn, ic, label, sub) => `<button class="setrow" onclick="${fn}"><span class="si">${ic}</span><span class="st"><b>${label}</b>${sub ? `<small>${sub}</small>` : ""}</span><span class="switch ${on ? "on" : ""}"><i></i></span></button>`;
   modal(`<h2>⚙️ Settings</h2>
+   <button class="setrow fbrow" onclick="feedback()"><span class="si">💬</span><span class="st"><b>Send feedback to Bill</b><small>Takes 10 seconds. He reads every one.</small></span><span class="chev">›</span></button>
    ${sw(musicOn, "toggleMusic()", "🎵", "Music", "Ukulele & flute theme by day, music-box lullaby at night")}
    ${sw(soundOn, "toggleSound()", "🔊", "Farm sounds", "Clucks, egg pops, coins, rooster crow")}
    ${navigator.vibrate ? sw(vibOn, "toggleVib()", "📳", "Vibration", "A tiny buzz when you tap things") : ""}
    <p class="hint">Hearing nothing on iPhone? Turn the volume up with the side buttons, then tap 🎵.</p>
    <h3>Your farmer name</h3><div class="namerow"><input id="playerIn" maxlength="24" value="${esc(S && S.player || "")}" placeholder="Your name" enterkeyhint="done"><button class="buy" onclick="setPlayer()">Save</button></div>
    <button class="act big" onclick="helpModal()">📖 How to play</button>
-   ${S && S.started ? `<button class="act big" onclick="replayTut()">🎓 Replay the tutorial</button><button class="act big danger" onclick="resetGame()">🗑️ Start a new farm…</button>` : ""}
+   ${S && S.started ? `<button class="act big" onclick="replayTut()">🎓 Replay the tutorial</button><button class="act big danger" onclick="resetGame('settings')">🌱 Start a new farm…</button>` : ""}
    <p class="hint">Progress saves automatically on this device. · ${BUILD}</p>
    <button class="buy big" onclick="closeModal()">Done</button>`); };
 window.toggleVib = () => { vibOn = !vibOn; try { localStorage.setItem("coopcity-vib", vibOn ? "1" : "0"); } catch (e) {} buzz(20); settingsModal(); };
@@ -615,7 +618,7 @@ window.helpModal = () => modal(`<h2>📖 How to play</h2>
   <div class="how"><span>🥚</span><p><b>Collect eggs</b> by tapping them in the yard, then <b>💰 Sell</b> them for coins.</p></div>
   <div class="how"><span>🔒</span><p><b>Lock the coop every night</b> (tap the coop or the 🔒 button), and let the hens out in the morning.</p></div>
   <div class="how"><span>🦅</span><p><b>Tap predators</b> to scare them off. Roosters, dogs, and defenses in Shop → Guard help too.</p></div>
-  <div class="how"><span>🪣</span><p><b>Kitchen scraps:</b> Brayden fills the 🪣 bucket after breakfast and dinner. Toss scraps to the hens as a treat, or ♻️ compost the few that are bad for them. Keep treats to about 10% of what they eat.</p></div>
+  <div class="how"><span>🪣</span><p><b>Kitchen scraps:</b> Charlie fills the 🪣 bucket after breakfast and dinner. Toss scraps to the hens as a treat, or ♻️ compost the few that are bad for them. Keep treats to about 10% of what they eat.</p></div>
   <div class="how"><span>🔨</span><p><b>Build:</b> pick an item in the bottom tray, then tap an empty spot of grass. Pick ✋ Hand to go back to tapping.</p></div>
   <div class="how"><span>🗺️</span><p><b>Look around:</b> drag the yard, pinch to zoom, and tap 🏠 to come back. Tap a 🪧 sign to buy more land.</p></div>
   <div class="how"><span>⭐</span><p><b>Goals:</b> the bar at the top always shows the next thing to do. Tap ⭐ for daily quests, badges, and your breed book.</p></div>
@@ -720,10 +723,10 @@ function floatXY(x, y, text) {
    - Behavior: the flock rushes over, squabbles, and one hen grabs the prize and runs ("keep-away") until she drops it or gulps it
      (Hobby Farms, BackYard Chickens). Roosters "tidbit" (call hens to food). Hens learn a bucket rattle in a few sessions. */
 const SCRAPS = {
-  // key: [emoji, name, kind (big = keep-away, bits = scatter and peck, meh = they ignore it), bad effect, seasons, where it came from, Brayden's line]
+  // key: [emoji, name, kind (big = keep-away, bits = scatter and peck, meh = they ignore it), bad effect, seasons, where it came from, Charlie's line]
   pumpkin: ["🎃", "Pumpkin guts & seeds", "big", 0, "Fall", "Left over from carving jack-o'-lanterns", "Pumpkin guts! Best day of their lives, apparently. <i>Tip: pumpkin flesh and seeds are a safe fall treat. Skip pumpkins that are painted, waxed, or moldy.</i>"],
-  zucchini: ["🥒", "Zucchini ends", "big", 0, "Summer Fall", "From Brayden's zucchini bread", "Zucchini is a sport now. <i>Tip: squash and zucchini, raw or cooked, are healthy treats.</i>"],
-  watermelon: ["🍉", "Watermelon rind", "big", 0, "Summer", "From Brayden's picnic", "They cleaned that rind down to the green part. <i>Tip: watermelon is a great hot-day treat because it's mostly water.</i>"],
+  zucchini: ["🥒", "Zucchini ends", "big", 0, "Summer Fall", "From Charlie's zucchini bread", "Zucchini is a sport now. <i>Tip: squash and zucchini, raw or cooked, are healthy treats.</i>"],
+  watermelon: ["🍉", "Watermelon rind", "big", 0, "Summer", "From Charlie's picnic", "They cleaned that rind down to the green part. <i>Tip: watermelon is a great hot-day treat because it's mostly water.</i>"],
   corn: ["🌽", "Corn cob", "big", 0, "Summer Fall", "From last night's dinner", "They're stripping that cob one kernel at a time. <i>Tip: corn is a fun treat, not a meal. Keep treats to about 10% of what they eat.</i>"],
   apple: ["🍎", "Apple slices", "big", 0, "Fall Winter", "From packing lunch", "Apple! They went bananas. Apple-nanas. <i>Tip: apple is a favorite treat. Core it first, because apple seeds are on the vets' avoid list.</i>"],
   greens: ["🥬", "Lettuce & kale ends", "big", 0, "all", "From making a salad", "The salad bar is open! <i>Tip: leafy greens like kale, collards, and lettuce are healthy treats most hens love.</i>"],
@@ -731,7 +734,7 @@ const SCRAPS = {
   banana: ["🍌", "Mushy banana", "big", 0, "all", "Too brown even for banana bread", "Banana gone in nine seconds. <i>Tip: soft fruit like bananas and berries is a safe treat in small amounts.</i>"],
   tomato: ["🍅", "Ripe tomato ends", "big", 0, "Summer", "From making salsa", "Tomato juice everywhere. They regret nothing. <i>Tip: ripe tomatoes are fine. Green, unripe tomatoes and the plant's leaves are on the avoid list.</i>"],
   broccoli: ["🥦", "Broccoli stems", "big", 0, "Winter Spring", "From stir-fry night", "Tiny trees for tiny dinosaurs. <i>Tip: broccoli and cabbage give bored winter hens something to peck at.</i>"],
-  carrot: ["🥕", "Carrot peels", "bits", 0, "all", "From Brayden's soup", "Peels everywhere and they're scratching for every last one. <i>Tip: veggie peels are a classic, safe kitchen scrap.</i>"],
+  carrot: ["🥕", "Carrot peels", "bits", 0, "all", "From Charlie's soup", "Peels everywhere and they're scratching for every last one. <i>Tip: veggie peels are a classic, safe kitchen scrap.</i>"],
   rice: ["🍚", "Leftover cooked rice", "bits", 0, "all", "From takeout night", "Rice confetti! <i>Tip: cooked rice is fine. Dry, uncooked rice is on the avoid list.</i>"],
   berries: ["🫐", "Squishy blueberries", "bits", 0, "Spring Summer", "From the back of the fridge (squishy, not moldy)", "Blueberry beaks! <i>Tip: berries are a safe treat most hens go wild for.</i>"],
   oats: ["🥣", "Leftover oatmeal", "bits", 0, "Fall Winter", "From breakfast", "Warm oatmeal on a cold day. They're so cozy. <i>Tip: plain cooked oats are a good winter treat.</i>"],
@@ -740,7 +743,7 @@ const SCRAPS = {
   moldy: ["🍞", "Moldy bread heel", "big", "tummy", "all", "Found behind the toaster", "That bread was fuzzy. Fuzzy is bad. <i>Tip: never feed moldy or rotten food. Mold can make chickens sick.</i>"],
   fries: ["🍟", "Cold salty fries", "big", "salty", "all", "From the drive-thru", "They LOVED the fries. That's the problem. <i>Tip: salty, greasy food isn't good for chickens. Too much salt makes them drink a ton and can make them sick.</i>"],
   onion: ["🧅", "Onion ends", "bits", "onion", "all", "From chopping onions", "Onion breath. On a chicken. <i>Tip: lots of onion (or garlic) can give eggs an off flavor, and big amounts aren't healthy for hens. Compost it.</i>"],
-  chocolate: ["🍫", "Chocolate cake crumbs", "bits", "tummy", "all", "From Brayden's birthday", "No no no, not the cake! <i>Tip: chocolate is toxic to chickens, just like it is to dogs.</i>"],
+  chocolate: ["🍫", "Chocolate cake crumbs", "bits", "tummy", "all", "From Charlie's birthday", "No no no, not the cake! <i>Tip: chocolate is toxic to chickens, just like it is to dogs.</i>"],
   citrus: ["🍊", "A big pile of orange peels", "meh", "citrus", "Winter", "From juicing oranges", "They looked at it. They looked at me. They left. <i>Tip: a little citrus is okay, but most hens don't like it, and a big pile of peels can upset their stomachs. Compost it.</i>"] };
 const BUCKET_MAX = 6;
 const treatBudget = () => Math.max(2, S.hens.length + 1);
@@ -764,7 +767,7 @@ function pickScrap() { const se = season()[1], fills = S.stats.fills || 0;
   const w = {}; Object.entries(SCRAPS).forEach(([k, d]) => { if (d[3] && fills < 2) return;
     w[k] = { w: (d[4] === "all" ? 1 : d[4].includes(se) ? 3 : 0.15) * (d[3] ? 0.7 : 1) * (k === "pumpkin" && HOL && HOL.k === "halloween" ? 4 : 1) }; });
   return pickW(w); }
-// Brayden adds scraps after breakfast and dinner. The bucket tops out at 6 and never spoils (walk-away friendly).
+// Charlie adds scraps after breakfast and dinner. The bucket tops out at 6 and never spoils (walk-away friendly).
 function fillBucket(n, meal) { if (!S.hens.length) return; const was = S.scraps.length;
   for (let i = 0; i < n && S.scraps.length < BUCKET_MAX; i++) { S.scraps.push(pickScrap()); S.stats.fills = (S.stats.fills || 0) + 1; }
   if (S.scraps.length === was) return; bucketBtn(); const b = $("#scrapBtn"); if (b) { b.classList.remove("bump"); void b.offsetWidth; b.classList.add("bump"); }
@@ -782,7 +785,7 @@ window.scrapTray = () => { if (!S || !S.started) return; sfx("rattle"); buzz(10)
    <div class="treatm"><span>Treats today</span><span class="dots">${dots}</span><b>${used}/${bud}</b></div>
    <p class="hint" style="margin:4px 0 6px">Keep treats to about 10% of what hens eat. Layer feed is the rest.</p>
    ${n ? S.scraps.map((k, i) => { const d = SCRAPS[k]; return `<div class="row scraprow"><span class="se">${d[0]}</span><div class="t"><b>${d[1]}</b><br><small>${d[5]}</small></div><div class="sb"><button class="buy" ${out ? "" : "disabled"} onclick="tossScrap(${i})" aria-label="Toss the ${d[1].toLowerCase()} to the hens">🐔 Toss to hens</button><button class="act cmp" onclick="compostScrap(${i})" aria-label="Compost the ${d[1].toLowerCase()}">♻️ Compost</button></div></div>`; }).join("")
-     : `<p class="trayi"><i>The bucket's empty. Brayden adds scraps after breakfast and dinner.</i></p>`}
+     : `<p class="trayi"><i>The bucket's empty. Charlie adds scraps after breakfast and dinner.</i></p>`}
    ${out || !n ? "" : `<p class="demo">${isNight() ? "It's dark and the hens are asleep. Scraps keep till morning." : "The hens are locked in. Let them out first!"}</p>`}
    <button class="act big" onclick="closeModal()">Close</button>`);
   bucketCall(); };
@@ -924,7 +927,7 @@ function scrapDone(f, how) { const d = f.d, bad = d[3], eat = [...f.eaters.keys(
   f.hens.forEach(h => h.happy = Math.min(100, h.happy + 2));
   eat.forEach(h => { h.scr = (h.scr || 0) + 1; if (!bad) h.happy = Math.min(100, h.happy + 6); });
   const m = top && mOf(top);
-  if (how === "meh") { S.compost = (S.compost || 0) + 1; toast(`${d[0]} The hens sniffed it and walked off. Brayden raked it into the compost.`, 0, 1); say(d[6], 1); compostWorms(); }
+  if (how === "meh") { S.compost = (S.compost || 0) + 1; toast(`${d[0]} The hens sniffed it and walked off. Charlie raked it into the compost.`, 0, 1); say(d[6], 1); compostWorms(); }
   else if (!bad) { bump("scraps"); xp(1); beep("good"); if (m) { floatXY(m.x + 4, m.y - 2, "+😊"); particle("💛", m.x + 7, m.y, 0); } sayOnce("scrap_" + f.k, d[6], 1); }
   else { beep("warn"); say(d[6], 1);
     if (bad === "tummy" && top) { top.tummy = S.day + 1; top.happy = Math.max(10, top.happy - 8); toast(`🤢 ${top.name} has a tummy ache. She'll be fine, but no egg from her tomorrow.`, 0, 1); }
@@ -941,6 +944,7 @@ function hurt(h, n) { h.health = Math.max(FLOOR, h.health - n); h.happy = Math.m
 function tick() {
   S.hour = (S.hour + 1) % 24;
   if (S.hour === 0) newDay();
+  if (S.hour === 10 || S.hour === 15) setTimeout(fbAsk, 1200); // build 12: one gentle feedback ask, once per device
   const feeders = tilesOf("feeder").map(i => S.grid[i]), waters = tilesOf("waterer").map(i => S.grid[i]);
   const day = !isNight(), w = S.weather[1];
   const totalFeed = feeders.reduce((a, f) => a + f.lvl, 0), totalWater = waters.reduce((a, f) => a + f.lvl, 0);
@@ -963,6 +967,9 @@ function tick() {
   });
   forageHour();
   if (S.hour === 8) { layEggs(); fillBucket(1, "breakfast"); }
+  if ((S.hour === 9 || S.hour === 13 || S.hour === 16) && S.tut >= TUT.length && !threat) { if (!S.said.lonely && S.hens.length === 1 && S.day >= 2) sayOnce("lonely", `${S.hens[0].name} keeps following me around. I think she's lonely. <i>Tip: chickens are flock animals and shouldn't live alone. Most keepers start with at least 3 hens. Get her some friends in the 🛒 Shop.</i>`, 1);
+    else if (!S.said.rooRatio && S.rooster && S.hens.length && S.hens.length < 5) sayOnce("rooRatio", `${S.rooster.name} is giving the girls a LOT of attention. They look tired of him. <i>Tip: with too few hens, a rooster over-mates them and they lose back feathers. Keepers aim for about 1 rooster per 8 to 10 hens.</i>`, 1);
+    else if (season()[1] === "Fall" && S.day >= 3) sayOnce("fallLight", "Fewer eggs lately. Did I do something wrong? <i>Tip: nope! Hens need about 14 hours of daylight to lay steadily. As fall days get shorter, laying slows down, and lots of hens molt.</i>", 1); }
   if (S.hour === 18) fillBucket(2, "dinner");
   if (S.hour === 14 && S.ground.length && !has("nest") && Math.random() < 0.15) { S.ground.shift(); sayOnce("eggeat", "One of the hens just ATE an egg. Her own egg! Is that allowed?? <i>Tip: egg eating can become a habit. Collect eggs often, use nest boxes, and keep calcium up so shells stay strong.</i>", 1); toast("🍳 A hen pecked open an egg and ate it!"); }
   if (S.hour === 7 && S.weather[1] === "Cold" && season()[1] === "Winter" && has("waterer") && Math.random() < 0.6) { tilesOf("waterer").forEach(i => { S.grid[i].lvl = 0; floatAt(i, "🧊 frozen!"); });
@@ -974,7 +981,7 @@ function tick() {
   if (S.hour === 7 && S.hens.length) { const r = mornBonus(); gain(r); toast(`☀️ Morning bonus +${r}🪙${S.stats.safeNights ? ` · 🛡️ ${S.stats.safeNights} safe nights so far` : ""}`); xp(2); }
   if (S.hour === 14 && S.day === 1 && !S.rooster && !S.said.rooOffer) offerRooster();
   threatHour();
-  if (S.hour === 20 && !S.locked) say(has("coop") ? "The hens just... went to bed by themselves? At 8pm? Icons. <i>Tip: lock the coop at night!</i>" : "It's dark and my hens have nowhere to sleep. <i>Tip: build a coop.</i>", 1);
+  if (S.hour === 20 && !S.locked) say(has("coop") ? (S.said.bed1 ? "Bedtime. The hens are on the roost. <i>Tap the coop to lock it.</i>" : (S.said.bed1 = 1, "The hens just... put themselves to bed at dusk? Icons. <i>Tip: chickens head to the roost on their own as it gets dark. Lock the coop behind them!</i>")) : "It's dark and my hens have nowhere to sleep. <i>Tip: build a coop.</i>", 1);
   if (S.hour === 5 && S.rooster) { sfx("crow"); if (!S.said.crow) { S.said.crow = 1; say(`${S.rooster.name} just screamed at 5am. Is he okay?? I guess my alarm clock is a bird now. <i>Tip: roosters crow at dawn (and whenever they feel like it). Hens lay without a rooster, but you need one for fertile eggs that hatch into chicks.</i>`, 1); } else toast(`🐓 ${S.rooster.name}: COCK-A-DOODLE-DOO!`); }
   if (S.hour === 6 && S.locked) say("Morning! Time to unlock the coop and let the ladies out.", 1);
   renderAll(); save();
@@ -1009,7 +1016,7 @@ function layEggs() {
   S.hens.forEach(h => {
     if (h.tummy === S.day) return; // tummy ache from a bad scrap: she skips one day, then she's fine
     const ok = h.health > 40 && h.happy > 35 && !(S.locked && !has("nest")) && !(h.cond && ["molt", "broody", "eggbound"].includes(h.cond.k));
-    const rate = CH[h.breed].layRate * (season()[1] === "Winter" ? 0.55 : 1) * (S.weather[1] === "Cold" ? 0.85 : 1) * (isOld(h) ? 0.5 : 1) * (S.stuffed === S.day ? 0.75 : 1); // too many treats yesterday = they skipped layer feed
+    const rate = CH[h.breed].layRate * ({ Winter: 0.55, Fall: 0.8 }[season()[1]] || 1) * (S.weather[1] === "Cold" ? 0.85 : 1) * (isOld(h) ? 0.5 : 1) * (S.stuffed === S.day ? 0.75 : 1); // too many treats yesterday = they skipped layer feed
     if (!ok || Math.random() > rate) return;
     if (S.day - S.calcium > 8 && Math.random() < 0.08) { toast(`🥚 ${h.name} laid a soft, rubbery egg.`); sayOnce("soft", "This egg is SQUISHY. Like a water balloon. <i>Tip: soft-shelled eggs often mean a hen needs more calcium. Offer oyster shell on the side.</i>", 1); return; }
     if (h.pers === "chatty") sayOnce("chatty" + S.day, `${h.name} laid an egg and is now SCREAMING about it. <i>Fact: hens often sing an 'egg song' after laying.</i>`, 1);
@@ -1144,6 +1151,7 @@ function xp(n) { S.xp += n;
 const GOALS = [
   ["egg1", "🥚", "Collect your first egg", () => S.lifetime >= 1, 5],
   ["sell1", "💰", "Sell eggs at the market", () => S.stats.sold >= 1, 5],
+  ["hens3", "🐔", "Get her friends: a flock of 3 hens", () => S.hens.length >= 3, 10],
   ["scare1", "🦅", "Scare off a predator (tap it!)", () => S.stats.scared >= 1, 10],
   ["lock1", "🔒", "Lock the coop for a whole night", () => S.stats.nightsLocked >= 1, 8],
   ["scraps1", "🥬", "Toss kitchen scraps to the hens", () => S.stats.scraps >= 1, 6],
@@ -1189,7 +1197,7 @@ function awayGift() { const away = Date.now() - (S.savedAt || Date.now()); if (a
   const layers = S.hens.filter(h => !h.cond || !["molt", "broody"].includes(h.cond.k)); const src = layers.length ? layers : S.hens;
   for (let i = 0; i < eggs; i++) { const h = src[i % src.length]; S.collection[h.egg] = (S.collection[h.egg] || 0) + 1; S.basket.push({ color: h.egg, breed: h.breed, hen: h.name, fertile: !!S.rooster, sire: S.rooster && S.rooster.breed }); }
   S.lifetime += eggs; S.coins += coins; S.savedAt = Date.now();
-  setTimeout(() => modal(`<h2>🧺 While you were away</h2><p>Time stops on the farm when you leave, so nobody got hungry or dirty, and no predators came by.</p><p>Brayden peeked in and found a little basket waiting:</p><p style="font-size:20px;text-align:center">🥚 ×${eggs} · 🪙 +${coins}</p><button class="buy big" onclick="closeModal()">Thanks, Brayden!</button>`), 1400); }
+  setTimeout(() => modal(`<h2>🧺 While you were away</h2><p>Time stops on the farm when you leave, so nobody got hungry or dirty, and no predators came by.</p><p>Charlie peeked in and found a little basket waiting:</p><p style="font-size:20px;text-align:center">🥚 ×${eggs} · 🪙 +${coins}</p><button class="buy big" onclick="closeModal()">Thanks, Charlie!</button>`), 1400); }
 /* ---------- SEASONS + REALISM ---------- */
 const SEASONS = [["🌱", "Spring"], ["☀️", "Summer"], ["🍂", "Fall"], ["⛄", "Winter"]];
 const season = () => realSeason();
@@ -1254,7 +1262,7 @@ const NIGHT_T = {
   possum: ["🐭", "Possum", 15, "A possum came snooping for eggs, then played dead when I came out. Rude.", "Opossums mostly steal eggs and rarely go after adult hens. Collect eggs every day."],
   coyote: ["🐺", "Coyote", 12, "I heard yipping. Like a dog party. A scary dog party.", "Coyotes mostly hunt at night. A locked coop and electric poultry netting keep them out."],
   fox: ["🦊", "Fox", 12, "A fox tried to dig a TUNNEL. It's like a heist movie.", "Foxes dig under fences. Bury hardware cloth or lay an apron of it around the coop."],
-  owl: ["🦉", "Owl", 10, "Something said 'who?' from the tree. I said 'Brayden.' It did not care.", "Great horned owls hunt at night and can take hens that roost outside. Lock everyone in the coop."],
+  owl: ["🦉", "Owl", 10, "Something said 'who?' from the tree. I said 'Charlie.' It did not care.", "Great horned owls hunt at night and can take hens that roost outside. Lock everyone in the coop."],
   snake: ["🐍", "Snake", 8, "A snake was poking around the nest box. They swallow eggs WHOLE.", "Rat snakes eat eggs and chicks. Seal small gaps with hardware cloth and collect eggs daily."],
   rat: ["🐀", "Rats", 12, "Something was sniffing around the feed. I'm choosing to believe it was a cute mouse.", "Rats come for spilled feed. Store feed in a metal can with a tight lid."],
   skunk: ["🦨", "Skunk", 8, "The yard smells like a skunk lost an argument. It did.", "Skunks eat eggs and sometimes attack hens. Collect eggs daily and secure the coop at night."],
@@ -1473,16 +1481,25 @@ function goalsModal() { if (!gTabs.includes(gTab)) gTab = "today";
     <p><b>Got a code?</b></p><textarea id="codeIn" class="code" placeholder="Paste a farm or gift code"></textarea><button class="buy big" onclick="redeemInput()">Open code</button>
     <p class="demo">Codes work offline and each gift opens once per device. Live neighbors would need a server later.</p>`;
   else body = `<p><b>Your farmer name</b></p><div class="namerow"><input id="playerIn" maxlength="24" value="${esc(S.player)}" placeholder="Your name"><button class="buy" onclick="setPlayer()">Save</button></div>
-    <p>Brayden is your clueless neighbor and guide. You're the one in charge.</p>
+    <p>Charlie is your clueless neighbor and guide. You're the one in charge.</p>
     <button class="act big" onclick="toggleMusic()">${musicOn ? "🎵 Music on" : "🎵 Music off"}</button>
     <button class="act big" onclick="toggleSound()">${soundOn ? "🔊 Farm sounds on" : "🔇 Farm sounds off"}</button>
-    <button class="act big" onclick="resetGame()">🗑️ Start a new farm</button><p style="font-size:12px">Progress saves automatically on this device.</p>`;
+    <button class="act big" onclick="resetGame('farm')">🌱 Start a new farm…</button><p style="font-size:12px">Progress saves automatically on this device.</p>`;
   modal(`<h2>🐔 ${esc(S.player ? S.player + "'s farm" : "My farm")}</h2><div class="tabs">${tabs}</div>${body}<button class="act big" onclick="closeModal()">Close</button>`);
 }
 window.goalsModal = goalsModal; window.gTabSet = k => { gTab = k; goalsModal(); };
 window.setPlayer = () => { S.player = $("#playerIn").value.trim().slice(0, 24); toast(S.player ? `Hi, ${S.player}!` : "Name cleared", 1); gbSig = ""; renderAll(); settingsModal(); };
-window.resetGame = () => modal(`<h2>Start over?</h2><p>This erases your farm on this device.</p><button class="buy big cull" onclick="doReset()">Yes, erase and start fresh</button><button class="act big" onclick="settingsModal()">Cancel</button>`);
-window.doReset = () => { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} location.hash = ""; location.reload(); };
+let resetFrom = "settings";
+window.resetGame = from => { resetFrom = from || "settings"; const sv = S && S.started ? S : loadSave(); if (!sv) return title();
+  const hn = (sv.hens || []).length, farm = sv.player ? `${esc(sv.player)}'s farm` : "your farm";
+  modal(`<h2>🌱 Start a new farm?</h2><div class="resetsum"><div class="guyMini">${guySVG}</div><p><b>Charlie:</b> This erases <b>${farm}</b>, Day ${sv.day || 1}, ${hn} ${hn === 1 ? "hen" : "hens"}${sv.rooster ? " and " + esc(sv.rooster.name) : ""}. Start over?</p></div>
+   <p class="hint">Eggs, coins, badges, and the tutorial all reset. Your music and sound settings stay the same. This can't be undone.</p>
+   <button class="buy big cull" id="resetYes" onclick="doReset()">🗑️ Erase &amp; start over</button><button class="act big" id="resetNo" onclick="keepFarm()">💛 Keep my farm</button>`); };
+window.keepFarm = () => resetFrom === "title" ? title() : resetFrom === "farm" ? (gTab = "farm", goalsModal()) : settingsModal();
+window.doReset = () => { // stop everything first so pagehide/visibilitychange can't write the old farm back
+  try { stopLoop(); } catch (e) {} clearTimeout(timer); clearInterval(wtimer); if (S) S.started = false;
+  try { ["coopcity-save-v1", "coopcity-fbask", "coopcity-fbsent"].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} location.reload(); };
 
 /* ---------- INPUT ---------- */
 function setTool(k) { tool = k; renderTools(); $("#grid").classList.toggle("placing", k !== "hand" && k !== "bulldoze"); $("#grid").classList.toggle("removing", k === "bulldoze"); }
@@ -1551,7 +1568,7 @@ function henTap(el) { sfx("cluck"); el.classList.remove("poke"); void el.offsetW
 function counts(list) { const c = {}; list.forEach(e => c[e.color] = (c[e.color] || 0) + 1); return c; }
 $("#sellBtn").onclick = () => {
   const c = counts(S.basket); const total = S.basket.reduce((a, e) => a + eggPrice(e), 0);
-  modal(`<h2>💰 Farmers market</h2><p>Brayden set up a folding table outside his apartment. Fancy colors sell for more.</p>${S.event === "market" || S.event === "contest" ? `<p class="demo">${EVENTS[S.event].join(" ")}</p>` : ""}
+  modal(`<h2>💰 Farmers market</h2><p>Charlie set up a folding table outside his apartment. Fancy colors sell for more.</p>${S.event === "market" || S.event === "contest" ? `<p class="demo">${EVENTS[S.event].join(" ")}</p>` : ""}
    ${Object.keys(c).map(k => `<div class="row">${eggSVG(k)}<div class="t"><b>${EGG_COLORS[k].label}</b> × ${c[k]}<br>${eggPrice({ color: k })}🪙 each</div></div>`).join("") || "<p><i>Your basket is empty. Tap eggs in the yard to collect them.</i></p>"}
    <button class="buy big" id="sellAllBtn" ${total ? "" : "disabled"} onclick="sellAll()">Sell all for ${total}🪙</button>
    <button class="buy big" onclick="shareCard()">📸 Share my egg rainbow</button>
@@ -1583,7 +1600,7 @@ function shop() {
       ${S.def[k] ? `<button class="buy" disabled>✓</button>` : lockedLv(k) ? `<button class="buy" disabled>🔒 Lv ${UNLOCK[k]}</button>` : `<button class="buy" ${S.coins < p ? "disabled" : ""} onclick="buyDef('${k}')">${p}🪙</button>`}</div>`).join("")
       + `<p style="font-size:12px"><i>Tip:</i> chicken wire keeps chickens in, but it doesn't keep predators out. Hardware cloth does.</p>`;
   } else if (shopTab === "supplies") {
-    body = `<p>🌾 Feed: <b>${S.feed}</b> scoops · 🧹 Coop: <b>${Math.round(S.clean)}%</b> clean</p>` + SUPPLIES.map(([k, t, d, p]) => `<div class="row"><div class="t"><b>${t}</b><br>${d}</div><button class="buy" ${S.coins < p ? "disabled" : ""} onclick="buySupply('${k}')">${p}🪙</button></div>`).join("");
+    body = `<p>🌾 Feed: <b>${S.feed}</b> ${S.feed === 1 ? "scoop" : "scoops"} · 🧹 Coop: <b>${Math.round(S.clean)}%</b> clean</p>` + SUPPLIES.map(([k, t, d, p]) => `<div class="row"><div class="t"><b>${t}</b><br>${d}</div><button class="buy" ${S.coins < p ? "disabled" : ""} onclick="buySupply('${k}')">${p}🪙</button></div>`).join("");
   } else if (shopTab === "premium") {
     const P = [["twin","🏡 Twin with a real farm hen","Your hen is paired with a real hen on a small farm. Her real laying drives your eggs, plus weekly photos.","$4.99/mo"],
       ["pack","🌈 Rare breed pack","Unlock every shop breed instantly, including Marans and Ayam Cemani.","$2.99"],
@@ -1725,6 +1742,88 @@ window.sellChick = id => { const c = S.chicks.find(x => x.id == id); if (!c) ret
   S.chicks = S.chicks.filter(x => x !== c); S.coins += v; toast(`Sold a chick! +${v}🪙`);
   sayOnce("chicksale", "A family bought a chick for their kids. It's like a tiny adoption. <i>Tip: chicks need a warm brooder for their first few weeks.</i>", 1); incubatorModal(); renderAll(); };
 
+/* ---------- BUILD 12: FEEDBACK ----------
+   One short in-game form: a 1-5 face rating, one optional text box, an optional name. Build/day/hens/device/screen/time
+   are attached automatically and shown to the player. Sent via FormSubmit's AJAX endpoint to Bill's inbox. The id below is
+   FormSubmit's public alias for the address (made to sit in page source), not a secret. No account or email app for testers. */
+const FB_URL = "https://formsubmit.co/ajax/12a3f1a139f9e46a7b40d92607d979d5";
+const FB_FACES = [["😖", "Not fun"], ["😕", "Meh"], ["😐", "Okay"], ["🙂", "Fun"], ["😍", "Love it"]];
+const fbLS = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} return null; };
+let fb = null, fbBusy = 0, fbBack = null; // fbBack: where Close returns to (title card or Settings)
+function fbDraft() { if (!fb) { let d = null; try { d = JSON.parse(fbLS("coopcity-fbdraft") || "null"); } catch (e) {} fb = Object.assign({ r: 0, msg: "", name: "" }, d || {}); if (!fb.name && S && S.player) fb.name = S.player; } return fb; }
+function fbKeep() { if (fb) fbLS("coopcity-fbdraft", JSON.stringify({ r: fb.r, msg: fb.msg, name: fb.name })); }
+function fbDevice() { const u = navigator.userAgent;
+  const os = /iPhone/.test(u) ? "iPhone" : /iPad/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? "iPad" : /Android/.test(u) ? "Android" : /Windows/.test(u) ? "Windows" : /Mac OS X/.test(u) ? "Mac" : /CrOS/.test(u) ? "Chromebook" : /Linux/.test(u) ? "Linux" : "Other";
+  const br = /EdgA?\//.test(u) ? "Edge" : /SamsungBrowser/.test(u) ? "Samsung Internet" : /CriOS|Chrome\//.test(u) ? "Chrome" : /FxiOS|Firefox\//.test(u) ? "Firefox" : /Safari\//.test(u) ? "Safari" : "Other";
+  return os + " · " + br; }
+function fbCtx() { const d = new Date(), sv = S && S.started ? S : loadSave();
+  let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+  return { Build: BUILD, Day: sv ? sv.day : "not started", Hens: sv ? (sv.hens || []).length + (sv.rooster ? " + rooster" : "") : 0, "Farm level": sv ? sv.lvl || 1 : "-",
+    Tutorial: sv ? (sv.tut != null && sv.tut < TUT.length ? `step ${sv.tut + 1} of ${TUT.length}` : "done") : "-", "Scraps tossed": sv && sv.stats ? sv.stats.scraps || 0 : 0,
+    Device: fbDevice(), Screen: `${screen.width}×${screen.height} @${Math.round((devicePixelRatio || 1) * 100) / 100}x`, Window: `${innerWidth}×${innerHeight}`,
+    Sent: d.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) + (tz ? ` (${tz})` : ""), "Sent (UTC)": d.toISOString(), "User agent": navigator.userAgent }; }
+window.feedback = () => { fbDraft(); const cur = $("#modalCard"); fbBack = $("#modal").classList.contains("hidden") ? null : cur.querySelector(".title") ? "title" : cur.querySelector(".setrow") ? "settings" : fbBack; if (S && S.said) S.said.fbAsk = 1; fbLS("coopcity-fbask", "1"); $("#fbBtn") && $("#fbBtn").classList.remove("hey"); buzz(10);
+  const c = fbCtx(), hn = parseInt(c.Hens) || 0, ctxLine = `${c.Build} · Day ${c.Day} · ${hn} ${hn === 1 ? "hen" : "hens"}${/rooster/.test(c.Hens) ? " + rooster" : ""} · ${c.Device} · ${c.Window}`;
+  modal(`<h2>💬 Tell Bill what you think</h2><div class="fbform">
+   <div class="intro fbintro"><div class="guyMini">${guySVG}</div><p class="say"><b>Charlie:</b> Bill made this game. He reads every note. Even the mean ones. <b>Especially</b> those.</p></div>
+   <p class="fbq" id="fbQ">How's it going so far?</p>
+   <div class="faces" role="radiogroup" aria-labelledby="fbQ">${FB_FACES.map(([e, l], i) => `<button type="button" class="face${fb.r === i + 1 ? " on" : ""}" role="radio" aria-checked="${fb.r === i + 1}" aria-label="${i + 1} of 5: ${l}" onclick="fbRate(${i + 1})"><span>${e}</span><small>${l}</small></button>`).join("")}</div>
+   <label class="fbl" for="fbMsg">What did you like? What was confusing or annoying? <i>(optional)</i></label>
+   <textarea id="fbMsg" maxlength="2000" rows="4" placeholder="Anything at all. Bugs, ideas, “the hawk is rude”…" oninput="fbType()">${esc(fb.msg)}</textarea>
+   <label class="fbl" for="fbName">Your name <i>(optional)</i></label>
+   <div class="namerow"><input id="fbName" maxlength="40" placeholder="So Bill knows who to thank" autocomplete="name" enterkeyhint="send" value="${esc(fb.name)}" oninput="fbType()"></div>
+   <input type="text" id="fbHoney" tabindex="-1" autocomplete="off" aria-hidden="true" class="fbhp">
+   <p class="fberr hidden" id="fbErr" role="alert"></p>
+   <button type="button" class="buy big fbsend" id="fbSend" onclick="fbSend()">📨 Send to Bill</button>
+   <p class="fbctx">Also sends: ${esc(ctxLine)}, and the time. Nothing else.</p>
+   <button type="button" class="act big" onclick="fbClose()">Not now</button></div>`);
+  fbState(); const m = $("#fbName"); m.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); fbSend(); } };
+  $("#modalCard").querySelectorAll(".fbform textarea,.fbform input").forEach(el => el.addEventListener("focus", fbFocus)); };
+window.fbClose = () => { fbKeep(); fbDone(); };
+window.fbDone = () => { const to = fbBack; fbBack = null; if (to === "title" && !(S && S.started && !demoMode)) return title(); if (to === "settings") return settingsModal(); closeModal(); };
+window.fbRate = r => { fbDraft(); fb.r = fb.r === r ? 0 : r; buzz(8); sfx("cluck"); $("#modalCard").querySelectorAll(".face").forEach((b, i) => { b.classList.toggle("on", fb.r === i + 1); b.setAttribute("aria-checked", fb.r === i + 1); }); fbKeep(); fbState(); };
+window.fbType = () => { fbDraft(); const t = $("#fbMsg"), n = $("#fbName"); if (t) fb.msg = t.value; if (n) fb.name = n.value; fbKeep(); fbState(); };
+function fbState(msg) { const b = $("#fbSend"), e = $("#fbErr"); if (!b) return; const ready = fb.r > 0 || fb.msg.trim().length > 0;
+  b.disabled = fbBusy || !ready; b.classList.toggle("busy", !!fbBusy); b.innerHTML = fbBusy ? `<span class="spin"></span> Sending…` : ready ? "📨 Send to Bill" : "Pick a face or write a note";
+  if (msg !== undefined && e) { e.innerHTML = msg; e.classList.toggle("hidden", !msg); } }
+// iPhone keyboards cover the bottom of the page without resizing it, so keep the focused box and Send button in view
+function fbFocus(ev) { const go = () => { const c = $("#modalCard"), s = $("#fbSend"), f = ev.target; if (!c || !s || !c.contains(f)) return; const vv = window.visualViewport, bot = vv ? vv.offsetTop + vv.height : innerHeight;
+    const cr = c.getBoundingClientRect(), fr = f.getBoundingClientRect(), sh = s.offsetHeight; // Send is sticky at the card's bottom edge
+    const floor = Math.min(cr.bottom, bot) - sh - 12, over = fr.bottom - floor; if (over > 0) c.scrollTop += Math.min(over, Math.max(0, fr.top - cr.top - 8)); };
+  setTimeout(go, 60); setTimeout(go, 380); }
+function kbFit() { const vv = window.visualViewport; if (!vv) return; const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); document.documentElement.style.setProperty("--kb", (kb > 80 ? kb : 0) + "px"); }
+if (window.visualViewport) { visualViewport.addEventListener("resize", kbFit); visualViewport.addEventListener("scroll", kbFit); }
+window.fbSend = async () => { fbDraft(); if (fbBusy) return; const t = $("#fbMsg"), n = $("#fbName"); if (t) fb.msg = t.value; if (n) fb.name = n.value; fbKeep();
+  if (!(fb.r > 0 || fb.msg.trim())) return fbState();
+  if ($("#fbHoney") && $("#fbHoney").value) return fbThanks(); // bots fill hidden boxes; people don't
+  const sig = fb.r + "|" + fb.msg.trim() + "|" + fb.name.trim(), last = JSON.parse(fbLS("coopcity-fblast") || "{}");
+  if (last.sig === sig && Date.now() - last.at < 10 * 60e3) return fbThanks(1); // same note again: it already went
+  const wait = Math.ceil((30e3 - (Date.now() - (last.at || 0))) / 1000); if (wait > 0) return fbState(`Bill's inbox needs a breather. Try again in ${wait} seconds.`);
+  if (navigator.onLine === false) return fbState(`📵 You look offline. Your note is saved right here, so tap Send again when you're back online.`);
+  fbBusy = 1; fbState(""); const c = fbCtx(), face = FB_FACES[fb.r - 1];
+  const body = Object.assign({ _subject: `Coup City feedback${face ? `: ${fb.r}/5 (${face[1]})` : ""}, Day ${c.Day}${fb.name.trim() ? ", from " + fb.name.trim().slice(0, 40) : ""}` /* plain subject: emoji-heavy subjects get spam-filtered */, _template: "table", _captcha: "false",
+    Rating: face ? `${fb.r}/5 ${face[0]} ${face[1]}` : "(no rating)", Feedback: fb.msg.trim() || "(no comment)", Name: fb.name.trim() || "(anonymous)" }, c);
+  if (/^TEST from Chicken App/.test(fb.msg.trim())) body._subject = "TEST from Chicken App build 12: " + body._subject; // lets Bill filter test notes
+  let ok = false, why = "";
+  try { const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 15000);
+    const r = await fetch(FB_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body), signal: ctl.signal }); clearTimeout(to);
+    const j = await r.json().catch(() => ({})); ok = r.ok && String(j.success) === "true"; if (!ok) why = j.message || "HTTP " + r.status;
+  } catch (e) { why = e.name === "AbortError" ? "timeout" : "network"; }
+  fbBusy = 0; window.__fbLast = { ok, why };
+  if (!ok) return fbState(why === "timeout" || why === "network" ? `📵 That didn't go through (the connection dropped). Your note is still here. Tap Send to try again.` : `😬 The mailbox hiccuped. Your note is still here. Tap Send to try again in a minute.`);
+  fbLS("coopcity-fblast", JSON.stringify({ sig, at: Date.now() })); fbLS("coopcity-fbsent", String((+fbLS("coopcity-fbsent") || 0) + 1));
+  fbThanks(); };
+function fbThanks(dupe) { const nm = (fb && fb.name.trim()) || (S && S.player) || ""; fb = null; fbLS("coopcity-fbdraft", null); sfx("coin"); buzz([10, 40, 10]);
+  modal(`<h2>💌 Sent!</h2><div class="bubblefull fbthanks"><div class="guyMini">${guySVG}</div><p><b>Charlie:</b> ${dupe ? "Bill already got that one. He's probably reading it right now with a very serious face." : `Thanks${nm && !/^bill$/i.test(nm.trim()) ? ", " + esc(nm) : ""}! It's on its way to Bill. I'd hand-deliver it, but the hens need me. He reads every single one.`}</p></div>
+   <p class="hint">Got more to say later? 💬 is always in the corner of the yard and in ⚙️ Settings.</p>
+   <button class="buy big" onclick="fbDone()">${fbBack === "title" && !(S && S.started && !demoMode) ? "Back" : fbBack === "settings" ? "Back to Settings" : "Back to the hens"}</button>`); }
+// one gentle ask after a real first session (tutorial done + first scraps toss, or Day 2), once per device, never during anything busy
+function fbAsk() { if (!S || !S.started || demoMode || S.said.fbAsk || fbLS("coopcity-fbask") || fbLS("coopcity-fbsent")) return;
+  if (!(S.tut >= TUT.length) || !(S.stats.scraps >= 1 || S.day >= 2) || isNight() || threat || frzOn || !$("#modal").classList.contains("hidden")) return;
+  const prevSay = $("#bubbleText").innerHTML, prevTip = $("#bubble").classList.contains("tip"); if (say(`Got a sec to tell Bill what you think? Tap 💬 down in the corner. Totally optional, the hens won't know.`, 0) === false) return;
+  setTimeout(() => { if (/Got a sec to tell Bill/.test($("#bubbleText").innerHTML)) say(prevSay, prevTip); }, 25000);
+  S.said.fbAsk = 1; sayHold = performance.now() + 8000; fbLS("coopcity-fbask", "1"); const b = $("#fbBtn"); if (b) { b.classList.remove("hey"); void b.offsetWidth; b.classList.add("hey"); } save(); }
+
 /* ---------- START ---------- */
 function title() {
   const sv = loadSave();
@@ -1732,11 +1831,12 @@ function title() {
    <h1 aria-label="Coup City">${[..."Coup City"].map((c, i) => `<span style="--i:${i}"${i === 0 ? ' class="king"' : ""}>${i === 0 ? '<em class="crown" aria-hidden="true">👑</em>' : ""}${c === " " ? "&nbsp;" : c}</span>`).join("")}</h1></div>
    <div class="sub">Chickens for people who can't have chickens (yet).</div>
    <button class="pill" id="titleMusic" onclick="toggleMusic()"></button>
-   ${sv && sv.hens ? `<button class="buy big cta" onclick="continueGame()">▶️ Continue${sv.player ? " as " + esc(sv.player) : ""} <small>Day ${sv.day}</small></button><div class="or"><span>or start a new farm</span></div>` : ""}
-   <div class="intro"><div class="guyMini">${guySVG}</div><p class="say">Hi, I'm <b>Brayden</b>, your neighbor. I just got chickens too and I have NO idea what I'm doing. What's your name?</p></div>
+   ${sv && sv.hens ? `<button class="buy big cta" onclick="continueGame()">▶️ Continue${sv.player ? " as " + esc(sv.player) : ""} <small>Day ${sv.day}</small></button>
+   <button class="act big newfarm" onclick="resetGame('title')">🌱 New farm</button>` : `<div class="intro"><div class="guyMini">${guySVG}</div><p class="say"><b>Charlie:</b> Hi, I'm Charlie, your neighbor. I just got chickens too and I have NO idea what I'm doing. What's your name?</p></div>
    <div class="namerow"><input id="playerIn" maxlength="24" placeholder="Your farmer name (optional)" enterkeyhint="done" autocomplete="given-name"></div>
    <h3>Pick your first hen</h3>
-   ${["leghorn", "barred"].map(k => `<button class="henpick" onclick="start('${k}')">${henSVG(k)}<span class="t"><b>${CH[k].name}</b><small>${CH[k].blurb}</small></span><span class="go">Adopt</span></button>`).join("")}
+   ${["leghorn", "barred"].map(k => `<button class="henpick" onclick="start('${k}')">${henSVG(k)}<span class="t"><b>${CH[k].name}</b><small>${CH[k].blurb}</small></span><span class="go">Adopt</span></button>`).join("")}`}
+   <button class="pill fbpill" onclick="feedback()">💬 Send feedback</button>
    <p class="foot">${realSeason()[0]} ${realSeason()[1]}${HOL ? " · " + HOL.name : ""} · <span class="ver">${BUILD}</span></p></div>`);
   audioBtns();
 }
@@ -1752,7 +1852,7 @@ let timer, wtimer;
 const hourMs = () => (isNight() ? 2000 : 4500) / S.speed;
 function step() { tick(); if (S.speed) timer = setTimeout(step, hourMs()); }
 function loop() { startLoop(); clearTimeout(timer); clearInterval(timer); if (S.speed) timer = setTimeout(step, hourMs()); clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
-$("#guyArt").innerHTML = guySVG; initParticles(); initPan(); audioBtns(); $("#scrapBtn").onclick = e => { e.stopPropagation(); scrapTray(); }; $("#lvBadge").onclick = () => { gTab = "today"; goalsModal(); }; $("#dqBtn").onclick = () => { gTab = "today"; goalsModal(); }; $("#nextBtn").onclick = hintTap; $("#gearBtn").onclick = () => settingsModal(); $("#musicBtn").onclick = e => { e.stopPropagation(); toggleMusic(); }; $("#sfxBtn").onclick = e => { e.stopPropagation(); toggleSound(); }; $("#flockChip").onclick = () => { shopTab = "hens"; shop(); }; $("#bubble").onclick = () => { if ($("#bubble").classList.contains("more")) modal(`<div class="bubblefull"><div class="guyMini">${guySVG}</div><p><b>Brayden:</b> ${$("#bubbleText").innerHTML}</p></div><button class="buy big" onclick="closeModal()">OK</button>`); }; $("#recenter").onclick = e => { e.stopPropagation(); recenter(); };
+$("#guyArt").innerHTML = guySVG; initParticles(); initPan(); audioBtns(); $("#scrapBtn").onclick = e => { e.stopPropagation(); scrapTray(); }; $("#lvBadge").onclick = () => { gTab = "today"; goalsModal(); }; $("#dqBtn").onclick = () => { gTab = "today"; goalsModal(); }; $("#nextBtn").onclick = hintTap; $("#gearBtn").onclick = () => settingsModal(); $("#fbBtn").onclick = e => { e.stopPropagation(); feedback(); }; $("#musicBtn").onclick = e => { e.stopPropagation(); toggleMusic(); }; $("#sfxBtn").onclick = e => { e.stopPropagation(); toggleSound(); }; $("#flockChip").onclick = () => { shopTab = "hens"; shop(); }; $("#bubble").onclick = () => { if ($("#bubble").classList.contains("more")) modal(`<div class="bubblefull"><div class="guyMini">${guySVG}</div><p><b>Charlie:</b> ${$("#bubbleText").innerHTML}</p></div><button class="buy big" onclick="closeModal()">OK</button>`); }; $("#recenter").onclick = e => { e.stopPropagation(); recenter(); };
 
 // Demo states for screenshots: ?demo=yard|night|shop|hensshop|coopshop|guardshop|henmodal|incubator|share|title|hawk|predator|goals|book|trade|land|barn|care|visit
 const demo = new URLSearchParams(location.search).get("demo");

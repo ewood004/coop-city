@@ -344,7 +344,7 @@ button{font-family:inherit;color:inherit;-webkit-user-select:none;user-select:no
 .tool.sel{background:linear-gradient(#ffe27a,#ffc531);color:#4a2c00;border-color:#fff;box-shadow:0 3px 0 #a87300,0 0 12px rgba(255,214,90,.7)}
 .tool.sel small{color:#7a4b00}
 
-/* --- Brayden --- */
+/* --- Charlie --- */
 #guy{flex:0 0 auto;display:flex;align-items:flex-end;gap:8px;padding:8px 10px calc(8px + var(--sab));background:linear-gradient(#6d4523,#57351a)}
 #guyArt{flex:0 0 auto}
 #guyArt svg{width:44px;height:54px}
@@ -593,3 +593,45 @@ body:has(#modal:not(.hidden)) #toast{top:calc(var(--sat) + 8px);bottom:auto;padd
 /* small phones: keep a modal-time toast to two short lines so it always fits the reserved strip above the card */
 @media (max-width:360px){body:has(#modal:not(.hidden)) #toast{font-size:12.5px;line-height:1.25}}
 body:has(#modal:not(.hidden)) #toast{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+
+/* ===== build 12: feedback ===== */
+#modal{padding-bottom:calc(12px + var(--sab) + var(--kb,0px));transition:padding-bottom .15s}
+.fbintro{margin:4px 0 10px}
+.fbintro .say{font-size:14px}
+.fbq{font:800 16px var(--ui);color:var(--ink);text-align:center;margin:6px 0 8px}
+.faces{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:0 0 12px}
+.face{min-height:64px;border:0;border-radius:16px;background:#fff;box-shadow:0 2px 0 #eedcb5,0 3px 8px rgba(61,43,27,.06);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 2px;transition:transform .12s,background .12s,box-shadow .12s;color:var(--ink2)}
+.face span{font-size:28px;line-height:1;filter:grayscale(.35);opacity:.8;transition:filter .12s,opacity .12s,transform .18s cubic-bezier(.2,1.6,.4,1)}
+.face small{font:800 11px/1.1 var(--ui);white-space:nowrap}
+.face:active{transform:scale(.94)}
+.face.on{background:#fff3c4;box-shadow:0 0 0 3px var(--sun),0 3px 0 var(--sun2);color:var(--ink)}
+.face.on span{filter:none;opacity:1;transform:scale(1.18)}
+.faces:has(.on) .face:not(.on) span{opacity:.55}
+.face:focus-visible{outline:3px solid #3a8ee6;outline-offset:2px}
+.fbl{display:block;font:800 14px/1.3 var(--ui);color:var(--ink);margin:10px 2px 6px}
+.fbl i{font-style:normal;font-weight:700;color:var(--ink2)}
+.fbform textarea{display:block;width:100%;min-height:96px;resize:vertical;font:700 16px/1.4 var(--ui);color:var(--ink);background:#fff;border:2px solid #e6c993;border-radius:14px;padding:10px 12px;outline:none}
+.fbform textarea:focus{border-color:var(--sun);box-shadow:0 0 0 3px rgba(255,197,49,.35)}
+.fbform textarea::placeholder,.fbform input::placeholder{color:#b3a08a}
+.fbhp{position:absolute!important;left:-9999px;width:1px;height:1px;opacity:0}
+.fberr{margin:8px 0 0;padding:10px 12px;border-radius:12px;background:#ffe9e4;color:#9b2c1a;font:700 14px/1.35 var(--ui);text-align:left}
+.fberr.hidden{display:none}
+.fbsend{position:sticky;bottom:-16px;z-index:2;min-height:52px;box-shadow:0 3px 0 var(--sun2),0 -14px 14px 4px rgba(255,246,226,.92)}
+.fbsend:disabled{background:#efe6d6;color:#9a8670;box-shadow:0 3px 0 #d8ccb6,0 -14px 14px 4px rgba(255,246,226,.92);cursor:default}
+.fbsend .spin{display:inline-block;width:16px;height:16px;margin-right:6px;vertical-align:-2px;border:3px solid rgba(61,43,27,.25);border-top-color:var(--ink);border-radius:50%;animation:fbspin .7s linear infinite}
+@keyframes fbspin{to{transform:rotate(360deg)}}
+.fbctx{font-size:12px;line-height:1.35;color:var(--ink2);text-align:center;margin:10px 4px 0}
+.fbthanks{margin:6px 0 4px}
+.fbrow .chev{font:800 26px var(--ui);color:#c9ab78;flex:0 0 auto;padding-right:4px}
+.fbrow{background:#fff7d6;box-shadow:0 2px 0 #f0d58a,0 3px 8px rgba(61,43,27,.06)}
+.fbpill{background:#fff;color:var(--ink);box-shadow:0 2px 0 #eedcb5;margin-top:14px}
+#dock.hey #fbBtn,#fbBtn.hey{animation:hey 1s ease-in-out 4}
+@media (max-width:360px){.face small{font-size:10px}.face span{font-size:25px}.face{min-height:58px}}
+/* short screens (phone keyboard open): drop Charlie's intro so the note and Send both fit */
+@media (max-height:600px){.fbintro{display:none}.fbform textarea{min-height:72px}.face{min-height:54px}.face span{font-size:24px}#modal:not(:has(.title)){padding-top:calc(var(--sat) + 60px)}}
+@media (max-width:340px){#dock{gap:6px}}
+/* build 12: new farm */
+.title .newfarm{margin-top:10px}
+.resetsum{display:flex;gap:10px;align-items:flex-end;margin:6px 0 10px}
+.resetsum p{flex:1;background:#fff;border-radius:16px;padding:10px 12px;margin:0;box-shadow:0 2px 0 rgba(120,80,30,.12)}
+#resetYes,#resetNo{min-height:48px}

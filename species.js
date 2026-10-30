@@ -42,10 +42,10 @@ window.SPECIES = {
         art: { body: "#2a2a2a", wing: "#3a3a3a", comb: "#e53935", hackle: "#b8642a", legs: "#cfc9b8", beak: "#d9c49a" },
         blurb: "Copper-necked and fancy. Famous for very dark eggs.",
         fact: "Marans lay the darkest chocolate-brown eggs, often speckled." },
-      ayam: { name: "Ayam Cemani", price: 80, layRate: 0.5, eggs: ["cream"],
+      ayam: { name: "Ayam Cemani", price: 80, layRate: 0.3, eggs: ["cream"],
         art: { body: "#141414", wing: "#232323", comb: "#2b1f2e", legs: "#222", beak: "#333", eye: "#111" },
         blurb: "Black feathers, black skin, black comb. Goth icon.",
-        fact: "MYTH BUSTED: Ayam Cemanis are black inside and out, but their eggs are cream. Not black!" }
+        fact: "MYTH BUSTED: Ayam Cemanis are black inside and out, but their eggs are cream. Not black! They're kept for looks, not eggs: about 80 to 120 a year." }
     },
     // Roosters don't lay. One is needed for fertile eggs (chicks). Chick breed = hen x rooster.
     roosters: {
