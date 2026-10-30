@@ -57,7 +57,7 @@ const ART = {
   hand: () => `<svg viewBox="0 0 100 100"><text x="50" y="70" font-size="58" text-anchor="middle">✋</text></svg>`,
   bulldoze: () => `<svg viewBox="0 0 100 100"><text x="50" y="68" font-size="56" text-anchor="middle">🧹</text></svg>`
 };
-const BUILD = "build 9 · polish pass";
+const BUILD = "build 10 · new music";
 const guySVG = `<svg viewBox="0 0 60 72"><circle cx="30" cy="9" r="6" fill="#5d4037"/><circle cx="30" cy="22" r="13" fill="#f1c7a0"/><path d="M17 18 Q30 4 43 18 Q30 12 17 18Z" fill="#5d4037"/><rect x="18" y="18" width="10" height="6" rx="2" fill="#111"/><rect x="32" y="18" width="10" height="6" rx="2" fill="#111"/><line x1="28" y1="21" x2="32" y2="21" stroke="#111" stroke-width="1.5"/><path d="M25 29 Q30 32 35 29" stroke="#8a4a2a" stroke-width="1.6" fill="none"/><path d="M12 72 V46 Q30 34 48 46 V72Z" fill="#7e57c2"/><path d="M20 38 Q30 46 40 38 L40 44 Q30 50 20 44Z" fill="#ff7043"/><rect x="44" y="48" width="10" height="14" rx="2" fill="#fff" stroke="#795548"/><rect x="44" y="52" width="10" height="4" fill="#8d6e63"/></svg>`;
 
 /* ---------- COOP ART PER LEVEL ---------- */
@@ -594,7 +594,7 @@ function sparkle(x, y) { const layer = $("#fly"); for (let i = 0; i < 7; i++) { 
 window.settingsModal = () => {
   const sw = (on, fn, ic, label, sub) => `<button class="setrow" onclick="${fn}"><span class="si">${ic}</span><span class="st"><b>${label}</b>${sub ? `<small>${sub}</small>` : ""}</span><span class="switch ${on ? "on" : ""}"><i></i></span></button>`;
   modal(`<h2>⚙️ Settings</h2>
-   ${sw(musicOn, "toggleMusic()", "🎵", "Music", "Cheerful banjo tune by day, lullaby at night")}
+   ${sw(musicOn, "toggleMusic()", "🎵", "Music", "Ukulele & flute theme by day, music-box lullaby at night")}
    ${sw(soundOn, "toggleSound()", "🔊", "Farm sounds", "Clucks, egg pops, coins, rooster crow")}
    ${navigator.vibrate ? sw(vibOn, "toggleVib()", "📳", "Vibration", "A tiny buzz when you tap things") : ""}
    <p class="hint">Hearing nothing on iPhone? Turn the volume up with the side buttons, then tap 🎵.</p>
@@ -793,20 +793,30 @@ function layEggs() {
 }
 const mornBonus = () => 5 + Math.min(10, Math.floor(S.stats.safeNights / 2)) + (HOL && HOL.k === "thanks" ? 5 : 0);
 /* ---------- PROGRESSION: coins pop, XP + farm level, goals, daily quests, events, streaks ---------- */
-/* ---------- AUDIO: original procedural "Coup City Hoedown" + farm SFX (Web Audio, no files) ----------
-   Key of G major, 116 BPM swung eighths. Form per loop: A A' B A C C (C = chorus with the "buk-buk-buk... BAWK" cluck hook).
-   Variation: loop 2 swaps lead to banjo, loop 3 modulates up to A major, loop 4 uses a whistle lead.
-   Night: the same hook as a slow music-box lullaby (72 BPM), crossfaded with the day/night cycle. */
+/* ---------- AUDIO: recorded score (music/*.mp3) + farm SFX (Web Audio) ----------
+   Original "Coup City" theme, composed for this game and rendered offline with GeneralUser GS instrument samples
+   (ukulele, flute, marimba, glockenspiel, pizzicato strings, banjo, upright bass, brushes). See CREDITS.md.
+   Day: G major, 108 BPM swing, 32 bars (71.1 s loop). Night: same hook as a celesta/EP lullaby, 78 BPM, 24 bars (73.8 s).
+   Each file = 0.5 s pre-roll + one loop + 0.5 s post-roll, so looping between loopStart/loopEnd is seamless even with
+   MP3 encoder delay. Played through an AudioBufferSourceNode (sample-accurate loop); <audio> fallback if decoding fails. */
 let soundOn = false; try { soundOn = localStorage.getItem("coopcity-sound") === "1"; } catch (e) {}
 let musicOn = true; try { musicOn = localStorage.getItem("coopcity-music") !== "0"; } catch (e) {}
-let AC = null, master, dayBus, nightBus, sfxBus, noiseBuf, musTimer = 0, musWant = [0, 0];
+const MUSIC_VOL = 0.5; // mastered at about -17 LUFS, so this sits well under the farm sounds
+const TRACKS = { day: { src: "music/coup-city-day.mp3?v=10", a: 0.5, b: 0.5 + 71.1111 }, night: { src: "music/coup-city-night.mp3?v=10", a: 0.5, b: 0.5 + 73.8461 } };
+for (const k in TRACKS) Object.assign(TRACKS[k], { bytes: null, buf: null, src0: null, gain: null, el: null, want: 0, offAt: 0, err: 0 });
+let AC = null, master, sfxBus, noiseBuf, musTimer = 0;
+function fetchTrack(k) { const T = TRACKS[k]; if (T.bytes || T.loading) return; T.loading = 1;
+  fetch(T.src).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(b => { T.bytes = b; decodeTrack(k); }).catch(() => { T.err = 1; T.loading = 0; }); }
+function decodeTrack(k) { const T = TRACKS[k]; if (!AC || !T.bytes || T.buf || T.decoding) return; T.decoding = 1;
+  const ok = b => { T.buf = b; T.decoding = 0; }, bad = () => { T.err = 1; T.decoding = 0; };
+  try { const p = AC.decodeAudioData(T.bytes.slice(0), ok, bad); if (p && p.catch) p.catch(bad); } catch (e) { bad(); } }
 function ac() {
   if (AC) return AC; const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
-  AC = new C(); master = AC.createGain(); master.gain.value = 0.16; master.connect(AC.destination);
-  dayBus = AC.createGain(); dayBus.gain.value = 0; dayBus.connect(master);
-  const lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1600; nightBus = AC.createGain(); nightBus.gain.value = 0; nightBus.connect(lp); lp.connect(master);
+  AC = new C(); master = AC.createGain(); master.gain.value = MUSIC_VOL; master.connect(AC.destination);
+  for (const k in TRACKS) { const g = AC.createGain(); g.gain.value = 0; g.connect(master); TRACKS[k].gain = g; }
   sfxBus = AC.createGain(); sfxBus.gain.value = 0.35; sfxBus.connect(AC.destination);
   noiseBuf = AC.createBuffer(1, AC.sampleRate * 0.5 | 0, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  for (const k in TRACKS) decodeTrack(k);
   return AC;
 }
 const mf = m => 440 * Math.pow(2, (m - 69) / 12);
@@ -815,72 +825,27 @@ function pluck(bus, m, t, vol, dec = 0.3, type = "square", cut = 2600) { const o
   o.type = type; o.frequency.setValueAtTime(mf(m) * 1.012, t); o.frequency.exponentialRampToValueAtTime(mf(m), t + 0.03);
   f.type = "lowpass"; f.frequency.setValueAtTime(cut, t); f.frequency.exponentialRampToValueAtTime(cut * 0.3, t + dec); f.Q.value = 1.5;
   env(g, t, 0.004, vol, dec); o.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t + dec + 0.06); }
-function lead(bus, m, t, dur, vol, type) { const o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter(), lfo = AC.createOscillator(), lg = AC.createGain();
-  o.type = type; o.frequency.value = mf(m); lfo.frequency.value = 5.2; lg.gain.value = mf(m) * 0.007; lfo.connect(lg); lg.connect(o.frequency);
-  f.type = "lowpass"; f.frequency.value = type === "sawtooth" ? 2000 : 5000;
-  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.025); g.gain.setValueAtTime(vol * 0.85, t + Math.max(0.04, dur - 0.05)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.07);
-  o.connect(f); f.connect(g); g.connect(bus); o.start(t); lfo.start(t); o.stop(t + dur + 0.1); lfo.stop(t + dur + 0.1); }
 function noise(bus, t, dur, vol, freq, type = "highpass") { const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = noiseBuf;
   f.type = type; f.frequency.value = freq; env(g, t, 0.002, vol, dur); s.connect(f); f.connect(g); g.connect(bus); s.start(t, Math.random() * 0.4); s.stop(t + dur + 0.05); }
 function cluck(bus, t, vol, big) { const o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain(); o.type = "square";
   const a = big ? 620 : 540; o.frequency.setValueAtTime(a, t); o.frequency.exponentialRampToValueAtTime(a * (big ? 2.1 : 1.8), t + 0.035); o.frequency.exponentialRampToValueAtTime(a * 1.15, t + (big ? 0.16 : 0.08));
   f.type = "bandpass"; f.frequency.value = 1300; f.Q.value = 2.5; env(g, t, 0.003, vol, big ? 0.17 : 0.08); o.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.22); noise(bus, t, 0.025, vol * 0.6, 2400, "bandpass"); }
-
-// Melody grid: 8 swung eighths per bar, semitones above the tonic (G4). H = hold, R = rest, chords = [root, minor?]
-const H = -99, R = null, MAJ = [0, 4, 7], MIN = [0, 3, 7];
-const SEC = {
-  A:  { ch: [[0, 0], [5, 0], [7, 0], [0, 0]], mel: [[7, R, 4, 7, 12, H, 9, 7], [9, H, 9, 7, 4, H, R, R], [2, 4, 7, H, 11, H, 9, 7], [7, 4, 2, 4, 0, H, H, R]] },
-  A2: { ch: [[0, 0], [5, 0], [7, 0], [0, 0]], mel: [[7, R, 4, 7, 12, H, 9, 7], [9, H, 9, 7, 4, H, R, R], [2, 4, 7, H, 11, H, 14, 12], [11, 9, 7, 4, 7, H, H, R]] },
-  B:  { ch: [[9, 1], [5, 0], [2, 1], [7, 0]], mel: [[4, H, H, 7, 9, H, 7, 4], [5, H, H, 4, 0, H, 4, H], [2, H, H, 4, 5, H, 9, H], [7, H, H, 9, 11, H, H, R]] },
-  C:  { ch: [[0, 0], [5, 0], [7, 0], [0, 0]], mel: [[12, 12, 12, R, 16, H, 12, R], [9, 9, 9, R, 12, H, 9, R], [11, 11, 11, R, 14, H, 11, 9], [7, 9, 11, 12, H, R, R, R]], cl: [[3, 7], [3, 7], [3], [5, 6, 7]] } };
-const DAY_FORM = ["A", "A2", "B", "A", "C", "C"], NIGHT_FORM = ["A", "A2", "B", "A"];
-const ROLL = [0, 2, 3, 1, 2, 3, 0, 2]; // banjo forward-roll over chord tones (3 = octave root)
-const mkSeq = (form, bpm, swing, night) => ({ form, bpm, swing, night, sec: 0, bar: 0, step: 0, loop: 0, t: 0, on: false, offAt: 0 });
-const DAYQ = mkSeq(DAY_FORM, 116, 0.62, false), NIGHTQ = mkSeq(NIGHT_FORM, 72, 0.54, true);
-function holdLen(mel, bar, step, secName, q) { let n = 1, b = bar, s = step + 1;
-  for (;;) { if (s > 7) { s = 0; b++; if (b > 3) break; } if (SEC[secName].mel[b][s] !== H) break; n++; s++; } return n; }
-function playStep(q, bus) {
-  const name = q.form[q.sec], S2 = SEC[name], [root, minor] = S2.ch[q.bar], tones = minor ? MIN : MAJ, e = 60 / q.bpm / 2, t = q.t, st = q.step;
-  const v = q.night ? 0 : q.loop % 4, key = v === 2 ? 2 : 0, chordT = i => root + (i === 3 ? 12 : tones[i]);
-  const note = S2.mel[q.bar][st];
-  if (q.night) {
-    if (st === 0) pluck(bus, 43 + key + root, t, 0.32, 1.4, "sine", 600);
-    if (st % 2 === 0) pluck(bus, 55 + key + chordT(ROLL[st]), t, 0.05, 0.9, "sine", 1200);
-    if (note !== R && note !== H) pluck(bus, 67 + key + note + 12, t, 0.14, 1.1, "sine", 3000);
-    return;
-  }
-  // boom-chick bass + chick strum
-  if (st === 0) pluck(bus, 43 + key + root, t, 0.42, 0.32, "triangle", 900);
-  if (st === 4) pluck(bus, 43 + key + root + (root >= 5 ? -5 : 7), t, 0.36, 0.3, "triangle", 900);
-  if (st === 2 || st === 6) { tones.forEach(k => pluck(bus, 55 + key + root + k, t, 0.05, 0.07, "triangle", 2000)); noise(bus, t, 0.05, 0.05, 3500); }
-  // shaker on every swung eighth, accent on the off-beats
-  noise(bus, t, 0.03, st % 2 ? 0.035 : 0.018, 7000);
-  // banjo roll (guitar on the banjo-lead loop so they don't clash)
-  if (v === 1) pluck(bus, 55 + key + chordT(ROLL[st]), t, 0.05, 0.18, "triangle", 1500);
-  else pluck(bus, 67 + key + chordT(ROLL[st]) - 12, t, 0.055, 0.2, "square", 3200);
-  // lead melody
-  if (note !== R && note !== H) { const dur = holdLen(S2.mel, q.bar, st, name, q) * e * 0.95, m = 67 + key + note;
-    if (v === 1) { pluck(bus, m, t, 0.2, 0.35, "square", 3600); }
-    else lead(bus, m, t, dur, v === 3 ? 0.11 : 0.1, v === 3 ? "sine" : "sawtooth"); }
-  // the cluck answer in the chorus
-  if (S2.cl && S2.cl[q.bar].includes(st)) cluck(bus, t, 0.16, q.bar === 3 && st === 7);
-}
-function advance(q) { const e = 60 / q.bpm / 2, long = 2 * e * q.swing, short = 2 * e - long;
-  q.t += q.step % 2 === 0 ? long : short; q.step++;
-  if (q.step > 7) { q.step = 0; q.bar++; if (q.bar > 3) { q.bar = 0; q.sec++; if (q.sec >= q.form.length) { q.sec = 0; q.loop++; } } } }
 const musicNight = () => !!(S && S.started && typeof isNight === "function" && isNight());
+function startTrack(k) { const T = TRACKS[k]; if (T.src0) return;
+  if (T.buf) { const s = AC.createBufferSource(); s.buffer = T.buf; s.loop = true; s.loopStart = T.a; s.loopEnd = Math.min(T.b, T.buf.duration - 0.01); s.connect(T.gain); s.start(AC.currentTime + 0.02, T.a); T.src0 = s; return; }
+  if (T.err) { // fallback: plain <audio> element (tiny loop gap is acceptable here)
+    if (!T.el) { T.el = new Audio(T.src); T.el.loop = true; T.el.setAttribute("playsinline", ""); T.el.preload = "auto"; }
+    T.el.volume = MUSIC_VOL; const p = T.el.play(); if (p && p.catch) p.catch(() => {}); T.src0 = T.el; } }
+function stopTrack(k) { const T = TRACKS[k]; if (!T.src0) return; try { T.src0 === T.el ? T.el.pause() : T.src0.stop(); } catch (e) {} T.src0 = null; }
 function musicTick() {
-  if (!AC || AC.state !== "running") return; const now = AC.currentTime, ahead = now + 0.3;
-  const want = musicOn ? (musicNight() ? [0, 1] : [1, 0]) : [0, 0];
-  [[DAYQ, dayBus, 0], [NIGHTQ, nightBus, 1]].forEach(([q, bus, i]) => {
-    if (want[i] !== musWant[i]) { const fade = musicOn ? 4 : 0.6; bus.gain.cancelScheduledValues(now); bus.gain.setValueAtTime(bus.gain.value, now); bus.gain.linearRampToValueAtTime(want[i] ? (i ? 0.85 : 1) : 0, now + fade); if (!want[i]) q.offAt = now + fade; }
-    if (!want[i] && now > q.offAt) { q.on = false; return; }
-    if (!q.on) { q.on = true; q.t = now + 0.06; q.step = 0; q.bar = 0; }
-    if (q.t < now - 0.2) q.t = now + 0.05; // resumed after a pause: don't burst-play missed notes
-    while (q.t < ahead) { playStep(q, bus); advance(q); }
-  });
-  musWant = want;
-}
+  if (!AC || AC.state !== "running") return; const now = AC.currentTime, night = musicNight();
+  if (TRACKS.day.buf && !TRACKS.night.bytes) fetchTrack("night"); // warm the lullaby so dusk crossfades instantly
+  for (const k in TRACKS) { const T = TRACKS[k], want = musicOn && (k === "night") === night ? 1 : 0;
+    if (want) { fetchTrack(k); decodeTrack(k); startTrack(k); }
+    if (want !== T.want) { const fade = musicOn ? 3 : 0.6; T.gain.gain.cancelScheduledValues(now); T.gain.gain.setValueAtTime(T.gain.gain.value, now); T.gain.gain.linearRampToValueAtTime(want, now + fade); T.want = want; T.offAt = now + fade + 0.1; if (T.el) T.el.volume = want ? MUSIC_VOL : 0; }
+    if (!want && T.src0 && now > T.offAt) stopTrack(k);
+    if (want && T.src0 === T.el && T.el && T.el.paused && !document.hidden) { const p = T.el.play(); if (p && p.catch) p.catch(() => {}); } } }
+if (musicOn) fetchTrack("day"); // prefetch the day theme (about 1.1 MB) while the title card is up
 /* iPhone audio. Three things make Web Audio reliable on iOS Safari:
    1) create/resume the AudioContext synchronously inside a real gesture (touchend/click) and play a 1-sample buffer;
    2) the ring/silent switch mutes Web Audio unless the page's audio session is "playback". iOS 17+ exposes
@@ -907,7 +872,7 @@ function audioStart() { if (!ac()) return;
 // Unlock on every real gesture until audio is running (also recovers from iOS "interrupted"). Cheap when already running.
 ["touchend", "pointerup", "click", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (!AC || AC.state !== "running" || (IOS && keepAlive && keepAlive.paused && (musicOn || soundOn))) audioStart(); }, true));
 document.addEventListener("visibilitychange", () => { if (!AC) return;
-  if (document.hidden) { clearInterval(musTimer); musTimer = 0; AC.suspend().catch(() => {}); if (keepAlive) keepAlive.pause(); }
+  if (document.hidden) { clearInterval(musTimer); musTimer = 0; AC.suspend().catch(() => {}); if (keepAlive) keepAlive.pause(); for (const k in TRACKS) if (TRACKS[k].el) TRACKS[k].el.pause(); }
   else { audioStart(); } });
 window.addEventListener("pageshow", () => { if (AC && !document.hidden) audioStart(); });
 // Farm SFX (off by default; 🔊 toggle)
@@ -1601,5 +1566,5 @@ else {
   if (/^(yard|hawk|predator|night|barn)$/.test(demo)) { clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
 }
 // test hooks (read-only debugging)
-window.__cc = { get S() { return S; }, pan, dayThreat, nightThreat, mkCode, readCode, farmSnap, frameLog: () => frameLog, SAVE_KEY, audio: () => ({ state: AC && AC.state, musicOn, soundOn, day: dayBus && +dayBus.gain.value.toFixed(2), night: nightBus && +nightBus.gain.value.toFixed(2), dayQ: { sec: DAYQ.sec, bar: DAYQ.bar, loop: DAYQ.loop, on: DAYQ.on }, nightQ: { on: NIGHTQ.on } }) };
+window.__cc = { get S() { return S; }, musicNode: () => master, pan, dayThreat, nightThreat, mkCode, readCode, farmSnap, frameLog: () => frameLog, SAVE_KEY, audio: () => ({ state: AC && AC.state, musicOn, soundOn, tracks: Object.fromEntries(Object.entries(TRACKS).map(([k, T]) => [k, { loaded: !!T.buf, err: T.err, playing: !!T.src0, gain: T.gain && +T.gain.gain.value.toFixed(2), dur: T.buf && +T.buf.duration.toFixed(2) }])) }) };
 })();
