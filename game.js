@@ -57,7 +57,7 @@ const ART = {
   hand: () => `<svg viewBox="0 0 100 100"><text x="50" y="70" font-size="58" text-anchor="middle">✋</text></svg>`,
   bulldoze: () => `<svg viewBox="0 0 100 100"><text x="50" y="68" font-size="56" text-anchor="middle">🧹</text></svg>`
 };
-const BUILD = "build 10 · new music";
+const BUILD = "build 11 · kitchen scraps";
 const guySVG = `<svg viewBox="0 0 60 72"><circle cx="30" cy="9" r="6" fill="#5d4037"/><circle cx="30" cy="22" r="13" fill="#f1c7a0"/><path d="M17 18 Q30 4 43 18 Q30 12 17 18Z" fill="#5d4037"/><rect x="18" y="18" width="10" height="6" rx="2" fill="#111"/><rect x="32" y="18" width="10" height="6" rx="2" fill="#111"/><line x1="28" y1="21" x2="32" y2="21" stroke="#111" stroke-width="1.5"/><path d="M25 29 Q30 32 35 29" stroke="#8a4a2a" stroke-width="1.6" fill="none"/><path d="M12 72 V46 Q30 34 48 46 V72Z" fill="#7e57c2"/><path d="M20 38 Q30 46 40 38 L40 44 Q30 50 20 44Z" fill="#ff7043"/><rect x="44" y="48" width="10" height="14" rx="2" fill="#fff" stroke="#795548"/><rect x="44" y="52" width="10" height="4" fill="#8d6e63"/></svg>`;
 
 /* ---------- COOP ART PER LEVEL ---------- */
@@ -194,7 +194,7 @@ function stepPan(dt) {
 const TAP_SLOP = 14, TAP_QUICK = 24, TAP_QUICK_MS = 300;
 function initPan() {
   const vp = $("#grid-wrap");
-  vp.addEventListener("pointerdown", e => { if (e.button > 0 || e.target.closest("#recenter, #dock")) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  vp.addEventListener("pointerdown", e => { if (e.button > 0 || e.target.closest("#recenter, #dock, #scrapBtn")) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const fling = Math.hypot(pan.vx, pan.vy) > 260; pan.vx = 0; pan.vy = 0; pan.goto = null;
     if (ptrs.size === 1) downAt = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y, t: performance.now(), lx: e.clientX, ly: e.clientY, lt: performance.now(), max: 0, fling, multi: false };
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = { d: Math.hypot(a.x - b.x, a.y - b.y), z: pan.z, px: pan.x, py: pan.y, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; pan.drag = true; if (downAt) downAt.multi = true; } });
@@ -288,10 +288,11 @@ function say(text, tip, force) { if (!force && S && S.tut < TUT.length && perfor
   b.classList.remove("more"); requestAnimationFrame(() => b.classList.toggle("more", b.scrollHeight > b.clientHeight + 3)); return true; }
 function sayOnce(key, text, tip) { if (S.said[key]) return; if (say(text, tip) !== false) S.said[key] = 1; }
 // toasts queue briefly so a quest/badge toast doesn't instantly hide "Feeder filled!"
-const toastQ = []; let toastBusy = 0;
-function toast(t, now) { t = { t, at: performance.now() }; if (now) { toastQ.unshift(t); toastBusy = 0; return toastNext(); } if (toastQ.length > 3) toastQ.shift(); toastQ.push(t); if (!toastBusy) toastNext(); }
+const toastQ = []; let toastBusy = 0, frzOn = 0; // frzOn: a scrap frenzy is running, so badge news waits until it ends
+function toast(t, now, pri) { t = { t, at: performance.now(), now: !!now, pri: !!pri }; if (now) { toastQ.unshift(t); toastBusy = 0; return toastNext(); } if (toastQ.length > 3) toastQ.splice(toastQ.findLastIndex(q => !q.pri) >= 0 ? toastQ.findIndex(q => !q.pri) : 0, 1); // pri: what just happened goes ahead of queued badge news
+  if (pri) { const i = toastQ.findIndex(q => !q.pri); toastQ.splice(i < 0 ? toastQ.length : i, 0, t); } else toastQ.push(t); if (!toastBusy) toastNext(); }
 function toastNext() { const el = $("#toast"); clearTimeout(toastNext._t);
-  if (toastQ.length && $("#modalCard .title")) { toastQ.forEach(q => q.at = performance.now()); toastBusy = 1; toastNext._t = setTimeout(toastNext, 600); return; } // hold toasts while the title card is up
+  if (toastQ.length && ($("#modalCard .title") || (frzOn && !toastQ[0].now))) { toastQ.forEach(q => q.at = performance.now()); toastBusy = 1; toastNext._t = setTimeout(toastNext, 600); return; } // hold toasts while the title card is up
   let q; while ((q = toastQ.shift()) && performance.now() - q.at > 7000) {} // drop stale news
   if (!q) { toastBusy = 0; return; } toastBusy = 1; const t = q.t;
   const dur = Math.min(4200, 1500 + t.length * 38);
@@ -386,7 +387,7 @@ function frame(t) {
   henEls.forEach(el => {
     const b = el._b, m = el._m; if (!b || !m) return;
     const tx = clampX(b.x), ty = clampY(b.y), dx = tx - m.x, dy = ty - m.y, d = Math.hypot(dx, dy);
-    const max = b.run ? 30 : el._roo ? 11 : 9; // % of yard per second
+    const max = b.spd || (b.run ? 30 : el._roo ? 11 : 9); // % of yard per second
     // arrive steering: desired velocity eases down near the target, velocity eases toward it
     const want = d > 0.05 ? Math.min(max, d * 2.2) / d : 0, k = Math.min(1, dt * 5);
     m.vx += (dx * want - m.vx) * k; m.vy += (dy * want - m.vy) * k;
@@ -394,7 +395,7 @@ function frame(t) {
     const sp = Math.hypot(m.vx, m.vy), s = Math.min(1, sp / 9);
     const tr = `translate3d(${(m.x * kx).toFixed(1)}px,${(m.y * ky).toFixed(1)}px,0)`;
     if (tr !== m.t) { el.style.transform = tr; m.t = tr; }
-    const face = Math.abs(m.vx) > 0.6 ? m.vx < 0 : !!b.flip;
+    const face = Math.abs(m.vx) > 1.8 ? m.vx < 0 : !!b.flip;
     if (face !== m.face) { m.face = face; el.classList.toggle("flip", face); }
     const walking = s > 0.08, bob = el._bob || (el._bob = el.querySelector(".bob"));
     if (walking !== m.walk) { m.walk = walking; bob.classList.toggle("walk", walking); if (!walking) { bob.style.transform = ""; m.bt = ""; } }
@@ -415,6 +416,7 @@ function frame(t) {
     if (tr !== a.t) { a.el.style.transform = tr; a.t = tr; }
     if (a.fade != null) { a.op += (a.fade - a.op) * Math.min(1, dt * 4); const o = a.op.toFixed(2); if (o !== a.o) { a.el.style.opacity = o; a.o = o; } }
   });
+  if (frenzies.size) try { stepFrenzies(dt, kx, ky); } catch (e) { console.error(e); frenzies.forEach(f => endFrenzy(f, "abort")); } // never let a scrap bug stall the yard
   stepParticles(dt, kx, ky);
 }
 function startLoop() { if (!rafId && !document.hidden) { lastT = 0; rafId = requestAnimationFrame(frame); } }
@@ -451,7 +453,7 @@ function renderHens() {
   if (S.rooster) { const key = "roo:" + S.rooster.breed; keep.add(key); placeBird(birdEl(key, rooSVG(), { "data-roo": "1" }), S.rooster, undefined, inside); }
   S.hens.forEach(h => {
     const key = "h" + h.id; keep.add(key);
-    const mood = h.cond ? COND[h.cond.k][0] : h.dust ? "💨" : h.health < 35 ? "🤒" : h.happy < 35 ? "😤" : h.happy > 75 ? "💛" : "";
+    const mood = h.xc ? h.xc : h.cond ? COND[h.cond.k][0] : h.dust ? "💨" : h.tummy && (S.day < h.tummy || (S.day === h.tummy && S.hour < 10)) ? "🤢" : h.dust ? "💨" : h.health < 35 ? "🤒" : h.happy < 35 ? "😤" : h.happy > 75 ? "💛" : "";
     placeBird(birdEl(key, henSVG(h.breed), { "data-h": h.id }), h, mood, inside);
   });
   henEls.forEach((el, k) => { if (!keep.has(k)) { el.remove(); henEls.delete(k); } });
@@ -473,6 +475,7 @@ if (window.ResizeObserver) new ResizeObserver(() => { const el = $("#grid-wrap")
 function setTxt(sel, v) { const el = $(sel); if (el && el.textContent !== String(v)) el.textContent = v; }
 function setHTML(el, v) { if (el && el._h !== v) { el._h = v; el.innerHTML = v; } }
 function renderHUD() {
+  bucketBtn();
   setTxt("#coins", S.coins); setTxt("#day", S.day);
   setTxt("#clock", `${(S.hour % 12) || 12}${S.hour < 12 ? "am" : "pm"}`);
   setTxt("#clockIcon", isNight() ? "🌙" : S.weather[0]); $("#clockStat").title = `${season()[1]} · ${S.weather[1]}`;
@@ -537,11 +540,12 @@ function nextHint() {
   if (wt !== undefined) return { t: "Water is low: tap the waterer", tile: wt, urgent: 1 };
   if (fd !== undefined) return S.feed > 0 ? { t: "Feeder is low: tap it to refill", tile: fd, urgent: 1 } : { t: "Out of feed: buy a bag in Shop → Supplies", act: () => { shopTab = "supplies"; shop(); }, el: "#shopBtn", urgent: 1 };
   if (S.ground.length) return { t: `Collect ${S.ground.length > 1 ? S.ground.length + " eggs" : "the egg"} in the yard`, tile: S.ground[0].tile };
+  if (S.scraps.length && !(S.stats.scraps > 0) && hensOut() && !frenzies.size) return { t: "Kitchen scraps! Tap 🪣 Scraps to toss them to the hens", el: "#scrapBtn", act: scrapTray };
   if (S.feed < 2) return { t: "Feed is running low: Shop → Supplies", act: () => { shopTab = "supplies"; shop(); }, el: "#shopBtn" };
   if (S.clean < 40) return { t: "Coop is dirty: buy pine shavings in Supplies", act: () => { shopTab = "supplies"; shop(); }, el: "#shopBtn" };
   if (S.basket.length >= 6) return { t: `Sell your ${S.basket.length} eggs`, el: "#sellBtn" };
   if (coop !== undefined && S.locked && !isNight() && S.hour >= 7 && S.hour < 18) return { t: "Morning! Tap the coop to let the hens out", tile: coop };
-  const g = nextGoal(); return g ? { t: `${g[1]} ${g[2]} · +${g[4]}🪙`, act: () => { gTab = "badges"; goalsModal(); }, goal: 1 } : { t: "🏆 All badges earned!", act: goalsModal };
+  const g = nextGoal(); return g ? { t: `${g[1]} ${g[2]}\u00a0·\u00a0+${g[4]}🪙`, act: () => { gTab = "badges"; goalsModal(); }, goal: 1 } : { t: "🏆 All badges earned!", act: goalsModal };
 }
 let hint = null, coachSig = "";
 function coach() {
@@ -553,7 +557,7 @@ function coach() {
   const cm = $("#coachMark"), showTile = hint.tile !== undefined && hint.tile !== null && (hint.step || hint.urgent || (performance.now() < coachPin && hint.tile === coachPinTile));
   if (showTile) { const p = tilePos(hint.tile); cm.style.left = ux(p.x - 1); cm.style.top = uy(p.y - 1); cm.classList.add("on"); } else cm.classList.remove("on");
   document.querySelectorAll(".coach").forEach(e => { if (!hint.el || !e.matches(hint.el)) e.classList.remove("coach"); });
-  if (hint.el && (hint.step || hint.urgent || hint.el === "#sellBtn")) { const e = document.querySelector(hint.el); if (e) e.classList.add("coach"); }
+  if (hint.el && (hint.step || hint.urgent || hint.el === "#sellBtn" || hint.el === "#scrapBtn")) { const e = document.querySelector(hint.el); if (e) e.classList.add("coach"); }
 }
 function coachPoint() { const cm = $("#coachMark"); if (cm.classList.contains("on")) { const r = cm.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }
   const e = hint && hint.el && document.querySelector(hint.el); if (e) { const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; } return null; }
@@ -611,6 +615,7 @@ window.helpModal = () => modal(`<h2>📖 How to play</h2>
   <div class="how"><span>🥚</span><p><b>Collect eggs</b> by tapping them in the yard, then <b>💰 Sell</b> them for coins.</p></div>
   <div class="how"><span>🔒</span><p><b>Lock the coop every night</b> (tap the coop or the 🔒 button), and let the hens out in the morning.</p></div>
   <div class="how"><span>🦅</span><p><b>Tap predators</b> to scare them off. Roosters, dogs, and defenses in Shop → Guard help too.</p></div>
+  <div class="how"><span>🪣</span><p><b>Kitchen scraps:</b> Brayden fills the 🪣 bucket after breakfast and dinner. Toss scraps to the hens as a treat, or ♻️ compost the few that are bad for them. Keep treats to about 10% of what they eat.</p></div>
   <div class="how"><span>🔨</span><p><b>Build:</b> pick an item in the bottom tray, then tap an empty spot of grass. Pick ✋ Hand to go back to tapping.</p></div>
   <div class="how"><span>🗺️</span><p><b>Look around:</b> drag the yard, pinch to zoom, and tap 🏠 to come back. Tap a 🪧 sign to buy more land.</p></div>
   <div class="how"><span>⭐</span><p><b>Goals:</b> the bar at the top always shows the next thing to do. Tap ⭐ for daily quests, badges, and your breed book.</p></div>
@@ -630,7 +635,7 @@ function pickSpot(h) {
   p = tilePos(rnd(spots)); p.x += Math.random() * 4; p.y += Math.random() * 4; return p;
 }
 function moveBird(h) {
-  if (h.busy) return;
+  if (h.busy || frzBirds.has(h)) return;
   const outside = !isNight() && !S.locked;
   if (outside && h.breed && !(h.cond && h.cond.k === "broody") && (tryForage(h) || (h.pers === "curious" && tryForage(h)) || (S.hour > 9 && maybeDustBath(h)))) return;
   const p = pickSpot(h); h.flip = p.x < h.x; h.x = p.x; h.y = p.y;
@@ -706,6 +711,229 @@ function floatXY(x, y, text) {
   $("#fx").appendChild(el); setTimeout(() => el.remove(), 1300);
 }
 
+
+/* ---------- BUILD 11: KITCHEN SCRAPS ----------
+   Real-life rules this follows (sources are listed in the build 11 report):
+   - Treats and scraps stay around 10% of the diet, about what the flock finishes in 10-15 minutes (Purina 90/10, VCA, OSU Extension).
+   - Safe: greens, veggie peels, most fruit, plain cooked rice/pasta/oats, pumpkin and squash. Avoid: avocado skin/pit (persin),
+     raw or dried beans, chocolate, moldy food, salty/greasy food, onions (off-flavored eggs), big piles of citrus (Purina, avian vets).
+   - Behavior: the flock rushes over, squabbles, and one hen grabs the prize and runs ("keep-away") until she drops it or gulps it
+     (Hobby Farms, BackYard Chickens). Roosters "tidbit" (call hens to food). Hens learn a bucket rattle in a few sessions. */
+const SCRAPS = {
+  // key: [emoji, name, kind (big = keep-away, bits = scatter and peck, meh = they ignore it), bad effect, seasons, where it came from, Brayden's line]
+  pumpkin: ["🎃", "Pumpkin guts & seeds", "big", 0, "Fall", "Left over from carving jack-o'-lanterns", "Pumpkin guts! Best day of their lives, apparently. <i>Tip: pumpkin flesh and seeds are a safe fall treat. Skip pumpkins that are painted, waxed, or moldy.</i>"],
+  zucchini: ["🥒", "Zucchini ends", "big", 0, "Summer Fall", "From Brayden's zucchini bread", "Zucchini is a sport now. <i>Tip: squash and zucchini, raw or cooked, are healthy treats.</i>"],
+  watermelon: ["🍉", "Watermelon rind", "big", 0, "Summer", "From Brayden's picnic", "They cleaned that rind down to the green part. <i>Tip: watermelon is a great hot-day treat because it's mostly water.</i>"],
+  corn: ["🌽", "Corn cob", "big", 0, "Summer Fall", "From last night's dinner", "They're stripping that cob one kernel at a time. <i>Tip: corn is a fun treat, not a meal. Keep treats to about 10% of what they eat.</i>"],
+  apple: ["🍎", "Apple slices", "big", 0, "Fall Winter", "From packing lunch", "Apple! They went bananas. Apple-nanas. <i>Tip: apple is a favorite treat. Core it first, because apple seeds are on the vets' avoid list.</i>"],
+  greens: ["🥬", "Lettuce & kale ends", "big", 0, "all", "From making a salad", "The salad bar is open! <i>Tip: leafy greens like kale, collards, and lettuce are healthy treats most hens love.</i>"],
+  pasta: ["🍝", "Plain cooked spaghetti", "big", 0, "all", "From spaghetti night", "Noodle tug-of-war! I think they think it's a worm. <i>Tip: plain cooked pasta and rice are fine in small amounts. Skip salty, buttery sauce.</i>"],
+  banana: ["🍌", "Mushy banana", "big", 0, "all", "Too brown even for banana bread", "Banana gone in nine seconds. <i>Tip: soft fruit like bananas and berries is a safe treat in small amounts.</i>"],
+  tomato: ["🍅", "Ripe tomato ends", "big", 0, "Summer", "From making salsa", "Tomato juice everywhere. They regret nothing. <i>Tip: ripe tomatoes are fine. Green, unripe tomatoes and the plant's leaves are on the avoid list.</i>"],
+  broccoli: ["🥦", "Broccoli stems", "big", 0, "Winter Spring", "From stir-fry night", "Tiny trees for tiny dinosaurs. <i>Tip: broccoli and cabbage give bored winter hens something to peck at.</i>"],
+  carrot: ["🥕", "Carrot peels", "bits", 0, "all", "From Brayden's soup", "Peels everywhere and they're scratching for every last one. <i>Tip: veggie peels are a classic, safe kitchen scrap.</i>"],
+  rice: ["🍚", "Leftover cooked rice", "bits", 0, "all", "From takeout night", "Rice confetti! <i>Tip: cooked rice is fine. Dry, uncooked rice is on the avoid list.</i>"],
+  berries: ["🫐", "Squishy blueberries", "bits", 0, "Spring Summer", "From the back of the fridge (squishy, not moldy)", "Blueberry beaks! <i>Tip: berries are a safe treat most hens go wild for.</i>"],
+  oats: ["🥣", "Leftover oatmeal", "bits", 0, "Fall Winter", "From breakfast", "Warm oatmeal on a cold day. They're so cozy. <i>Tip: plain cooked oats are a good winter treat.</i>"],
+  avocado: ["🥑", "Avocado skin & pit", "big", "tummy", "all", "From guac night", "Uh oh. That was avocado skin. <i>Tip: avocado skin and pits contain persin, which is toxic to chickens. Compost them instead.</i>"],
+  beans: ["🫘", "Dried beans (the bag ripped)", "bits", "tummy", "all", "Spilled on the kitchen floor", "Wait, were those DRY beans? <i>Tip: raw or dried beans contain a toxin that's harmful to chickens. Cooked beans are fine.</i>"],
+  moldy: ["🍞", "Moldy bread heel", "big", "tummy", "all", "Found behind the toaster", "That bread was fuzzy. Fuzzy is bad. <i>Tip: never feed moldy or rotten food. Mold can make chickens sick.</i>"],
+  fries: ["🍟", "Cold salty fries", "big", "salty", "all", "From the drive-thru", "They LOVED the fries. That's the problem. <i>Tip: salty, greasy food isn't good for chickens. Too much salt makes them drink a ton and can make them sick.</i>"],
+  onion: ["🧅", "Onion ends", "bits", "onion", "all", "From chopping onions", "Onion breath. On a chicken. <i>Tip: lots of onion (or garlic) can give eggs an off flavor, and big amounts aren't healthy for hens. Compost it.</i>"],
+  chocolate: ["🍫", "Chocolate cake crumbs", "bits", "tummy", "all", "From Brayden's birthday", "No no no, not the cake! <i>Tip: chocolate is toxic to chickens, just like it is to dogs.</i>"],
+  citrus: ["🍊", "A big pile of orange peels", "meh", "citrus", "Winter", "From juicing oranges", "They looked at it. They looked at me. They left. <i>Tip: a little citrus is okay, but most hens don't like it, and a big pile of peels can upset their stomachs. Compost it.</i>"] };
+const BUCKET_MAX = 6;
+const treatBudget = () => Math.max(2, S.hens.length + 1);
+const frenzies = new Set(), frzBirds = new Set();
+const birdKey = b => b === S.rooster ? "roo:" + b.breed : "h" + b.id;
+const mOf = b => { const el = henEls.get(birdKey(b)); return el && el._m ? el._m : { x: b.x, y: b.y, face: !!b.flip }; };
+const beakOf = b => { const m = mOf(b); return { x: m.x + (m.face ? 2 : b === S.rooster ? 14 : 12), y: m.y + 8 }; };
+const near = (b, d = 2.2) => { const m = mOf(b); return Math.hypot(m.x - clampX(b.x), m.y - clampY(b.y)) < d; };
+const setT = (b, p) => { b.x = p.x; b.y = p.y; if (p.flip !== undefined) b.flip = p.flip; };
+function setMood(b, t) { if (b !== S.rooster) b.xc = t; const el = henEls.get(birdKey(b)); if (el && el.firstChild.textContent !== (t || "")) el.firstChild.textContent = t || ""; }
+function pk(b, cls = "pecking") { const el = henEls.get(birdKey(b)); if (!el) return; const bob = el._bob || (el._bob = el.querySelector(".bob"));
+  bob.classList.remove("pecking", "scratching"); void bob.offsetWidth; bob.classList.add(cls); bob.onanimationend = () => bob.classList.remove(cls); }
+function okGround(x, y) { const c = Math.floor(x * VC / 100), r = Math.floor(y * VR / 100), i = r * COLS + c;
+  if (c < 0 || r < 0 || c >= COLS || r >= ROWS || !owned(i)) return false; const g = S.grid[i]; return !g || g.type === "run" || g.type === "bed"; }
+const viewCenter = () => ({ x: (pan.x + yardW / 2) / pan.z / yardW * 100, y: (pan.y + viewH / 2) / pan.z / yardH * 100 });
+const inView = (x, y, m = 30) => { const sx = x * yardW / 100 * pan.z - pan.x, sy = y * yardH / 100 * pan.z - pan.y; return sx > m && sy > m && sx < yardW - m && sy < viewH - m - 40; };
+const toScreen = (x, y) => { const r = $("#grid-wrap").getBoundingClientRect(); return [r.left + x * yardW / 100 * pan.z - pan.x, r.top + y * yardH / 100 * pan.z - pan.y]; };
+const starterScrap = () => ({ Fall: "pumpkin", Summer: "watermelon", Spring: "greens", Winter: "apple" })[realSeason()[1]];
+function pickScrap() { const se = season()[1], fills = S.stats.fills || 0;
+  if (!fills) return starterScrap(); // the very first scrap is always a safe, seasonal crowd-pleaser
+  const w = {}; Object.entries(SCRAPS).forEach(([k, d]) => { if (d[3] && fills < 2) return;
+    w[k] = { w: (d[4] === "all" ? 1 : d[4].includes(se) ? 3 : 0.15) * (d[3] ? 0.7 : 1) * (k === "pumpkin" && HOL && HOL.k === "halloween" ? 4 : 1) }; });
+  return pickW(w); }
+// Brayden adds scraps after breakfast and dinner. The bucket tops out at 6 and never spoils (walk-away friendly).
+function fillBucket(n, meal) { if (!S.hens.length) return; const was = S.scraps.length;
+  for (let i = 0; i < n && S.scraps.length < BUCKET_MAX; i++) { S.scraps.push(pickScrap()); S.stats.fills = (S.stats.fills || 0) + 1; }
+  if (S.scraps.length === was) return; bucketBtn(); const b = $("#scrapBtn"); if (b) { b.classList.remove("bump"); void b.offsetWidth; b.classList.add("bump"); }
+  const d = SCRAPS[S.scraps[S.scraps.length - 1]];
+  if (!S.said.bucket1) sayOnce("bucket1", `I made ${meal === "dinner" ? "dinner" : "breakfast"} and now I have ${d[1].toLowerCase()}. Do chickens eat that? <i>Tip: tap 🪣 Scraps to take kitchen scraps out to the hens. Most veggie and fruit scraps make great treats.</i>`, 1);
+  else if (!was) toast(`🪣 ${d[0]} Fresh kitchen scraps from ${meal}! Tap 🪣 to take them out.`); }
+function bucketBtn() { const b = $("#scrapBtn"); if (!b || !S) return; b.classList.toggle("tuthide", S.tut != null && S.tut < TUT.length && !demoMode); /* one new thing at a time: the bucket appears once the tutorial steps are done */ const n = S.scraps.length; setTxt("#scrapN", n);
+  b.classList.toggle("has", n > 0); b.classList.toggle("fresh", n > 0 && !(S.stats.scraps > 0) && !b.classList.contains("coach"));
+  const al = n ? `Scrap bucket, ${n} kitchen scrap${n > 1 ? "s" : ""}. Tap to take them out to the hens` : "Scrap bucket, empty"; if (b.getAttribute("aria-label") !== al) b.setAttribute("aria-label", al); }
+window.scrapTray = () => { if (!S || !S.started) return; sfx("rattle"); buzz(10);
+  const n = S.scraps.length, used = S.treatN || 0, bud = treatBudget(), out = hensOut();
+  const dots = Array.from({ length: bud }, (_, i) => `<i class="${i < used ? "on" : ""}"></i>`).join("") + `<i class="on over"></i>`.repeat(Math.max(0, Math.min(3, used - bud)));
+  modal(`<h2>🪣 Kitchen scraps</h2>
+   <p class="trayi">Most kitchen scraps make great chicken treats, but a few are bad for hens. Not sure? ♻️ Compost it.</p>
+   <div class="treatm"><span>Treats today</span><span class="dots">${dots}</span><b>${used}/${bud}</b></div>
+   <p class="hint" style="margin:4px 0 6px">Keep treats to about 10% of what hens eat. Layer feed is the rest.</p>
+   ${n ? S.scraps.map((k, i) => { const d = SCRAPS[k]; return `<div class="row scraprow"><span class="se">${d[0]}</span><div class="t"><b>${d[1]}</b><br><small>${d[5]}</small></div><div class="sb"><button class="buy" ${out ? "" : "disabled"} onclick="tossScrap(${i})" aria-label="Toss the ${d[1].toLowerCase()} to the hens">🐔 Toss to hens</button><button class="act cmp" onclick="compostScrap(${i})" aria-label="Compost the ${d[1].toLowerCase()}">♻️ Compost</button></div></div>`; }).join("")
+     : `<p class="trayi"><i>The bucket's empty. Brayden adds scraps after breakfast and dinner.</i></p>`}
+   ${out || !n ? "" : `<p class="demo">${isNight() ? "It's dark and the hens are asleep. Scraps keep till morning." : "The hens are locked in. Let them out first!"}</p>`}
+   <button class="act big" onclick="closeModal()">Close</button>`);
+  bucketCall(); };
+// Hens that have eaten from the bucket a few times learn the rattle and come running before anything is tossed.
+function bucketCall() { if (!hensOut()) return; const v = viewCenter(), now = performance.now(); let first = null;
+  S.hens.forEach(h => { if ((h.scr || 0) < 3 || frzBirds.has(h) || h.busy) return; first = first || h; setMood(h, "❗"); h.run = true;
+    setT(h, { x: v.x - 7 + (Math.random() - 0.5) * 20, y: v.y - 4 + (Math.random() - 0.5) * 10 }); h.next = now + 5000;
+    setTimeout(() => { if (!frzBirds.has(h)) { h.run = false; if (h.xc === "❗") h.xc = ""; } }, 2000); });
+  if (!first) return; renderHens();
+  if (!S.said.trained) { S.said.trained = 1; say(`${first.name} heard the bucket rattle and came RUNNING. She knows the sound now! <i>Fact: chickens learn fast. Shake the same bucket every time you bring treats and they'll come running, which is handy for getting them back in the run.</i>`, 1); } }
+window.compostScrap = i => { const k = S.scraps[i]; if (!k) return; const d = SCRAPS[k]; S.scraps.splice(i, 1); S.compost = (S.compost || 0) + 1; S.stats.compost = (S.stats.compost || 0) + 1; buzz(8); sfx("pour");
+  if (d[3]) { xp(1); say(`Good call. ${d[6].replace(/^.*?<i>/, "<i>")}`, 1); toast(`♻️ ${d[0]} Composted. Good call!`, 1); }
+  else toast(`♻️ ${d[0]} Into the compost. (The hens would've loved that, though!)`, 1);
+  compostWorms(); bucketBtn(); renderAll(); if (S.scraps.length) scrapTray(); else closeModal(); };
+function compostWorms() { if ((S.compost || 0) % 4 || isNight()) return; for (let i = 0; i < 3; i++) spawnBug("worm"); renderForage();
+  toast("🪱 The compost pile is full of worms, and the hens noticed!");
+  sayOnce("compost", "The compost bin is crawling with worms and the hens are thrilled. <i>Tip: compost piles draw earthworms and bugs, which are great protein for hens. Hens love to scratch through a pile and turn it for you.</i>", 1); }
+window.tossScrap = i => { const k = S.scraps[i]; if (!k) return; if (!hensOut()) return toast(isNight() ? "It's dark. Scraps keep till morning." : "Let the hens out first!", 1);
+  if (threat && !threat.done) { closeModal(); return toast("Not now. Scare off the predator first!", 1); }
+  S.scraps.splice(i, 1); closeModal(); bucketBtn(); buzz(12);
+  const p = tossSpot(), far = !inView(p.x, p.y) || !inView(p.cx, p.cy); if (far) { pan.zGoal = Math.max(pan.z, 0.85); panTo((p.x + p.cx) / 2, (p.y + p.cy) / 2); } // frame the landing spot and the flock together
+  setTimeout(() => flyArc(SCRAPS[k][0], centerOf("#scrapBtn"), toScreen(p.x, p.y), () => land(k, p)), far ? 450 : 80); };
+function tossSpot() { const free = S.hens.filter(h => !frzBirds.has(h)), src = free.length ? free : S.hens; let cx = 0, cy = 0;
+  src.forEach(h => { const m = mOf(h); cx += m.x + 7; cy += m.y + 8; }); cx /= src.length || 1; cy /= src.length || 1;
+  const v = viewCenter(); let x = cx * 0.55 + v.x * 0.45 + (Math.random() - 0.5) * 10, y = cy * 0.55 + v.y * 0.45 + (Math.random() - 0.5) * 6;
+  if (!okGround(x, y)) { const t = openTiles().map(i => { const q = tilePos(i); return { x: q.x + 7, y: q.y + 6 }; }).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]; if (t) { x = t.x; y = t.y; } }
+  return { x: Math.min(188, Math.max(12, x)), y: Math.min(145, Math.max(12, y)), cx, cy }; }
+function flyArc(emoji, from, to, done) { if (!from || !to || reduceMotion) return done(); const el = document.createElement("i"); el.className = "toss"; el.textContent = emoji; $("#fly").appendChild(el);
+  const [fx, fy] = [from[0] - 14, from[1] - 14], [tx, ty] = [to[0] - 14, to[1] - 14], mx = (fx + tx) / 2, my = Math.min(fy, ty) - 70 - Math.random() * 30;
+  el.animate([{ transform: `translate(${fx}px,${fy}px) scale(.6) rotate(0deg)` }, { transform: `translate(${(fx + mx) / 2}px,${(fy + my) / 2 - 18}px) scale(1) rotate(120deg)`, offset: 0.28 },
+    { transform: `translate(${mx}px,${my}px) scale(1.2) rotate(220deg)`, offset: 0.5 }, { transform: `translate(${(mx + tx) / 2}px,${(my + ty) / 2 - 12}px) scale(1.1) rotate(320deg)`, offset: 0.75 },
+    { transform: `translate(${tx}px,${ty}px) scale(1) rotate(400deg)` }], { duration: 620, easing: "linear" }).onfinish = () => { el.remove(); done(); }; }
+function scrapEl(txt, cls) { const el = document.createElement("div"); el.className = "scrap " + cls; el.innerHTML = `<span>${txt}</span>`; $("#fx").appendChild(el); return el; }
+function land(k, p) { if (!hensOut()) { S.scraps.unshift(k); bucketBtn(); return; }
+  sfx("plop"); buzz(10); for (let i = 0; i < 3; i++) particle("💨", p.x - 4 + Math.random() * 8, p.y - 2, 2);
+  startFrenzy(k, p); coach(); }
+function startFrenzy(k, p) {
+  const d = SCRAPS[k], f = { k, d, x: p.x, y: p.y, t: 0, ph: "call", hens: [], info: new Map(), bits: [], steals: 0, max: 0, car: null, eaters: new Map(), roo: null, nx: 0, sides: [0, 0] };
+  if (d[2] === "bits") { const n = Math.min(7, 3 + S.hens.length); for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, r = 4 + Math.random() * 15;
+    const b = { x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r * 0.6, el: scrapEl(d[0], "bit"), who: null, gone: false }; b.el.style.transform = `translate3d(${(b.x * yardW / 100).toFixed(1)}px,${(b.y * yardH / 100).toFixed(1)}px,0)`; f.bits.push(b); } }
+  else f.el = scrapEl(d[0], "big");
+  // Food call: a rooster "tidbits" (clucks, picks the food up and drops it) to call his hens over instead of eating it himself
+  const r = S.rooster; if (r && !frzBirds.has(r) && d[2] !== "meh") { frzBirds.add(r); frzCls(r, 1); f.roo = r; r.run = true; r.spd = 28; const right = mOf(r).x + 8 > p.x; setT(r, { x: right ? p.x - 2 : p.x - 14, y: p.y - 8, flip: right }); }
+  frenzies.add(f); frzOn = 1; $("#hens").classList.add("frz"); $("#toast").classList.add("fz"); recruit(f); sfx("cluck"); }
+// hide holiday hats on birds in a frenzy so a 🎃 hat is never mistaken for the 🎃 scrap
+function frzCls(b, on) { const el = henEls.get(birdKey(b)); if (el) el.classList.toggle("frz", !!on); }
+function recruit(f) {
+  const add = S.hens.filter(h => !frzBirds.has(h) && !(h.cond && h.cond.k === "broody")).map(h => { const m = mOf(h); return [h, Math.hypot(m.x + 7 - f.x, m.y + 8 - f.y), m]; }).sort((a, b) => a[1] - b[1]);
+  add.forEach(([h, dist, m]) => { frzBirds.add(h); frzCls(h, 1); f.hens.push(h); h.busy = true;
+    if (h.dust) { h.dust = false; const el = henEls.get("h" + h.id), bob = el && el.querySelector(".bob"); if (bob) bob.classList.remove("dusting"); }
+    let side = m.x + 7 > f.x ? 1 : 0; if (f.sides[side] > f.sides[1 - side] + 1) side = 1 - side; const I = { side, r: f.sides[side]++, on: false, st: 0, bit: null };
+    I.go = Math.max(0.12, 0.3 + dist * 0.012 + Math.random() * 0.4 - Math.min(5, h.scr || 0) * 0.08 - (f.roo ? 0.2 : 0)); f.info.set(h, I); });
+}
+function slot(f, I) { const off = I.r * 3.6, dy = (I.r % 2 ? 3.4 : -2.4) * (I.r ? 1 : 0.4) + (Math.random() - 0.5) * 1.2;
+  return I.side ? { x: f.x - 2 + off, y: f.y - 8 + dy, flip: true } : { x: f.x - 12 - off, y: f.y - 8 + dy, flip: false }; }
+function pickBit(f, h) { const m = mOf(h), hx = m.x + 7, hy = m.y + 8, I = f.info.get(h); let best = null, bd = 1e9;
+  f.bits.forEach(b => { if (b.gone) return; const d = Math.hypot(b.x - hx, b.y - hy) + (b.who && b.who !== h ? 14 : 0); if (d < bd) { bd = d; best = b; } });
+  I.bit = best; I.st = 0; I.pk = 0; if (!best) return; best.who = h; const right = hx > best.x; setT(h, right ? { x: best.x - 2, y: best.y - 8, flip: true } : { x: best.x - 12, y: best.y - 8, flip: false }); }
+// the part of the yard on screen, as a box for a hen's top-left corner, kept m px inside the view (and clear of the bottom buttons)
+function viewBox(m) { const ux = sx => (sx + pan.x) / pan.z / yardW * 100, uy = sy => (sy + pan.y) / pan.z / yardH * 100;
+  return { x0: ux(m) - 7, x1: ux(yardW - m) - 7, y0: uy(m) - 6, y1: uy(viewH - m - 40) - 6 }; }
+function runPoint(f, h) { const m = mOf(h), vb = viewBox(56); let cx = 0, cy = 0, n = 0; f.hens.forEach(o => { if (o === h) return; const q = mOf(o); cx += q.x; cy += q.y; n++; });
+  const base = n ? Math.atan2(m.y - cy / n, m.x - cx / n) : Math.random() * 6.283; let best = null, bs = -1e9;
+  for (let i = 0; i < 24; i++) { const a = base + (Math.random() - 0.5) * 5, d = 26 + Math.random() * 16, x = m.x + Math.cos(a) * d, y = m.y + Math.sin(a) * d * 0.75;
+    if (x < vb.x0 || x > vb.x1 || y < vb.y0 || y > vb.y1 || !okGround(x + 7, y + 8)) continue;
+    const sc = Math.cos(a - base) + Math.min(x - vb.x0, vb.x1 - x, (y - vb.y0) * 1.3, (vb.y1 - y) * 1.3) / 18; // away from the flock, but not into a corner
+    if (sc > bs) { bs = sc; best = { x, y }; } }
+  if (best) return best;
+  const v = viewCenter(); return { x: clampX(m.x + (v.x - 7 - m.x) * 0.7), y: clampY(m.y + (v.y - 6 - m.y) * 0.7) }; } // nowhere open: cut back across the middle
+function grab(f, h) { const prev = f.car; f.car = h; f.ph = "carry"; f.ct = f.t; f.cd = 2.6 + Math.random() * 1.2; f.legs = 2 + (Math.random() < 0.45); h.spd = 28 + Math.random() * 3; setMood(h, "😋");
+  if (prev) { setMood(prev, "😤"); prev.spd = 20 + Math.random() * 3; }
+  setT(h, runPoint(f, h)); if (f.el) f.el.classList.add("held"); const m = mOf(h); particle("💨", m.x + 7, m.y + 9, 2);
+  if (f.hens.length > 1) sayOnce("keepaway", `${h.name} grabbed it and RAN, and now everyone's chasing her. Is this a sport? <i>Fact: when one hen grabs a big treat, the flock plays "keep-away" until she drops it or gulps it down.</i>`, 1); }
+function stepFrenzies(dt, kx, ky) {
+  if (!frenzies.size) return; const danger = (threat && !threat.done) || !hensOut();
+  frenzies.forEach(f => {
+    if (danger) return endFrenzy(f, "abort");
+    f.t += dt; f.hens = f.hens.filter(h => S.hens.includes(h));
+    if (!f.hens.length) { recruit(f); if (!f.hens.length && f.t > 15) return endFrenzy(f, "abort"); }
+    const big = f.d[2] === "big";
+    // each hen notices on her own schedule (closer and bucket-trained hens first), then sprints over
+    f.hens.forEach(h => { const I = f.info.get(h); if (I.on || f.t < I.go) return; I.on = true; h.run = true; h.spd = 24 + Math.random() * 6; setMood(h, "❗");
+      const m = mOf(h); particle("❗", m.x + 6, m.y - 2, 0);
+      if (f.d[2] === "bits") pickBit(f, h); else if (f.ph !== "carry") setT(h, slot(f, I)); });
+    const r = f.roo;
+    if (r) { if (!f.rs && near(r, 3)) { f.rs = f.t; pk(r); const m = mOf(r); floatXY(m.x + 2, m.y - 4, "tuk-tuk-tuk!");
+        sayOnce("tidbit", `${r.name} found the food and is calling the hens over instead of eating it. What a gentleman. <i>Fact: roosters "tidbit": they cluck, bob their head, and pick up and drop food to call hens to it.</i>`, 1); }
+      if (f.rs && !f.r2 && f.t - f.rs > 0.7) { f.r2 = 1; pk(r); }
+      if ((f.rs && f.t - f.rs > 1.6 && f.ph !== "call") || f.t > 6) { const m = mOf(r); setT(r, { x: clampX(m.x + (m.face ? 14 : -14)), y: clampY(m.y + 5) }); r.run = false; r.spd = 0; frzBirds.delete(r); frzCls(r, 0); r.next = performance.now() + 2500; f.roo = null; } }
+    if (f.ph === "call" && f.d[2] !== "bits") { const arr = f.hens.filter(h => f.info.get(h).on && near(h, 3)).length;
+      if (arr >= Math.min(2, f.hens.length) || (arr && f.t > 4.5)) { f.ph = big ? "squab" : "sniff"; f.pt = f.t; } }
+    else if (f.ph === "call") f.ph = "peck";
+    if (f.ph === "squab") { // a short scrum: heads down, pecks, a feather or two, everyone shoving for position
+      const on = f.hens.filter(h => f.info.get(h).on && near(h, 5));
+      if (f.t >= f.nx && on.length) { f.nx = f.t + 0.15 + Math.random() * 0.12; pk(rnd(on)); if (Math.random() < 0.55) particle(Math.random() < 0.5 ? "🪶" : "💨", f.x - 3 + Math.random() * 6, f.y - 5, Math.random() < 0.5 ? 1 : 2);
+        const j = rnd(on), s = slot(f, f.info.get(j)); s.x += (Math.random() - 0.5) * 3; s.y += (Math.random() - 0.5) * 2; setT(j, s); }
+      if (f.t - f.pt > 1.1) { const pool = on.length ? on : f.hens.filter(h => f.info.get(h).on), w = {}; pool.forEach((h, i) => w[i] = { w: (h.pers === "bossy" ? 3 : 1) + Math.min(5, h.scr || 0) * 0.1 });
+        const n = f.hens.length; f.max = n >= 3 ? 1 + (Math.random() < 0.6) : n === 2 ? 1 : 0; grab(f, pool[+pickW(w)]); } }
+    else if (f.ph === "carry") { const c = f.car, b = beakOf(c), cm = mOf(c); const tx = b.x + (cm.face ? -2.5 : 2.5), ty = b.y - 4.5, e = Math.min(1, dt * 16); f.x += (tx - f.x) * e; f.y += (ty - f.y) * e; let i = 0; // held up and out in front of her beak so it reads clearly
+      const back = cm.face ? 1 : -1, lane = [-5, 5, 0, -10, 10, -3, 4], vb = viewBox(14); // chasers string out behind her in loose lanes, not one blob
+      f.hens.forEach(h => { if (h === c || !f.info.get(h).on) return; if (!h.spd || h.spd > 25) h.spd = 20 + Math.random() * 4;
+        let tx = Math.min(vb.x1, Math.max(vb.x0, cm.x + back * (11 + i * 6))), ty = Math.min(vb.y1, Math.max(vb.y0, cm.y + lane[i % 7])); if (!okGround(tx + 7, ty + 8)) { tx = cm.x + back * (9 + i * 4); ty = cm.y + lane[i % 7] * 0.3; } setT(h, { x: clampX(tx), y: clampY(ty) }); i++; });
+      if (near(c, 2.5) && f.legs > 1 && f.t - f.ct < f.cd - 0.6) { f.legs--; setT(c, runPoint(f, c)); particle("💨", cm.x + 7, cm.y + 9, 2); } // she cuts and zig-zags
+      else if (near(c, 2.5) || f.t - f.ct > f.cd) { f.ph = "drop"; f.dt = f.t; f.dp2 = 0; setT(c, { x: cm.x, y: cm.y, flip: cm.face }); pk(c); if (f.el) f.el.classList.remove("held");
+        f.hens.forEach(h => { if (h !== c && f.info.get(h).on) setT(h, slot(f, f.info.get(h))); }); } }
+    else if (f.ph === "drop") { const c = f.car; // she stops to eat it; the others crowd in and someone may snatch it
+      if (!f.dp2 && f.t - f.dt > 0.45) { f.dp2 = 1; pk(c); }
+      if (f.t - f.dt > 0.95) { const cm = mOf(c), th = f.hens.filter(h => h !== c && f.info.get(h).on).map(h => [h, Math.hypot(mOf(h).x - cm.x, mOf(h).y - cm.y)]).filter(a => a[1] < 28).sort((a, b) => a[1] - b[1]);
+        if (th.length && f.steals < f.max && Math.random() < 0.75) { f.steals++; particle("💢", f.x, f.y - 7, 0); sfx("cluck"); grab(f, th[0][0]); }
+        else { f.ph = "eat"; f.et = f.t; f.e2 = 0; pk(c); } } }
+    else if (f.ph === "eat") { const c = f.car; if (!f.e2 && f.t - f.et > 0.55) { f.e2 = 1; pk(c); if (f.el) f.el.classList.add("eaten"); }
+      if (f.t - f.et > 1.15) { f.eaters.set(c, 2); return endFrenzy(f, "ate"); } }
+    else if (f.ph === "peck") { // scattered bits: everyone scratches and pecks their own piece
+      f.hens.forEach(h => { const I = f.info.get(h); if (!I.on) return; if (I.bit && I.bit.gone) pickBit(f, h);
+        if (!I.bit) { if (!I.idle) { I.idle = 1; pk(h, "scratching"); } return; }
+        if (!I.st && near(h, 2.6)) { I.st = f.t; pk(h, "scratching"); const m = mOf(h); particle("💨", m.x + 6, m.y + 9, 2); }
+        if (I.st && !I.pk && f.t - I.st > 0.5) { I.pk = 1; pk(h); }
+        if (I.st && f.t - I.st > 1.0) { I.bit.gone = true; I.bit.el.classList.add("eaten"); f.eaters.set(h, (f.eaters.get(h) || 0) + 1); pickBit(f, h); } });
+      if (f.bits.every(b => b.gone)) { f.dn = f.dn || f.t; if (f.t - f.dn > 0.5) return endFrenzy(f, "ate"); }
+      if (f.t > 16) return endFrenzy(f, "ate"); }
+    else if (f.ph === "sniff") { const on = f.hens.filter(h => f.info.get(h).on && near(h, 4));
+      if (!f.s1 && on.length) { f.s1 = 1; pk(on[0]); } if (!f.s2 && f.t - f.pt > 0.8) { f.s2 = 1; on.forEach(h => setMood(h, "🤨")); }
+      if (f.t - f.pt > 1.9) return endFrenzy(f, "meh"); }
+    if (f.t > 25) return endFrenzy(f, "ate");
+    if (f.el) { const t = `translate3d(${(f.x * kx).toFixed(1)}px,${(f.y * ky).toFixed(1)}px,0)`; if (t !== f.tt) { f.el.style.transform = t; f.tt = t; } }
+  });
+}
+function endFrenzy(f, how) { if (!frenzies.has(f)) return; frenzies.delete(f); const now = performance.now();
+  if (!frenzies.size) { frzOn = 0; $("#hens").classList.remove("frz"); $("#toast").classList.remove("fz"); }
+  if (f.roo) { const r = f.roo; frzBirds.delete(r); frzCls(r, 0); r.run = false; r.spd = 0; r.next = now + 1500; }
+  f.hens.forEach(h => { frzBirds.delete(h); frzCls(h, 0); h.busy = false; h.spd = 0; h.xc = ""; h.run = false;
+    if (how !== "abort" && S.hens.includes(h)) { const m = mOf(h); setT(h, { x: clampX(m.x + (Math.random() - 0.5) * 6), y: clampY(m.y + (Math.random() - 0.5) * 4) }); h.next = now + 1400 + Math.random() * 2200;
+      if (Math.random() < 0.6) setTimeout(() => pk(h, "scratching"), 300 + Math.random() * 700); } }); // they hang around scratching for crumbs
+  const els = [f.el, ...f.bits.map(b => b.el)].filter(Boolean); els.forEach(e => e.classList.add(how === "meh" ? "linger" : "eaten")); setTimeout(() => els.forEach(e => e.remove()), how === "meh" ? 3200 : 700);
+  if (how === "abort") { if (S.scraps.length < BUCKET_MAX) S.scraps.unshift(f.k); bucketBtn(); renderHens(); return; } // a hawk or bedtime interrupted: the scrap goes back in the bucket
+  scrapDone(f, how); }
+function scrapDone(f, how) { const d = f.d, bad = d[3], eat = [...f.eaters.keys()].filter(h => S.hens.includes(h)).sort((a, b) => f.eaters.get(b) - f.eaters.get(a)), top = eat[0];
+  if (how !== "meh") S.treatN = (S.treatN || 0) + 1; S.stats.scraps = (S.stats.scraps || 0) + 1;
+  f.hens.forEach(h => h.happy = Math.min(100, h.happy + 2));
+  eat.forEach(h => { h.scr = (h.scr || 0) + 1; if (!bad) h.happy = Math.min(100, h.happy + 6); });
+  const m = top && mOf(top);
+  if (how === "meh") { S.compost = (S.compost || 0) + 1; toast(`${d[0]} The hens sniffed it and walked off. Brayden raked it into the compost.`, 0, 1); say(d[6], 1); compostWorms(); }
+  else if (!bad) { bump("scraps"); xp(1); beep("good"); if (m) { floatXY(m.x + 4, m.y - 2, "+😊"); particle("💛", m.x + 7, m.y, 0); } sayOnce("scrap_" + f.k, d[6], 1); }
+  else { beep("warn"); say(d[6], 1);
+    if (bad === "tummy" && top) { top.tummy = S.day + 1; top.happy = Math.max(10, top.happy - 8); toast(`🤢 ${top.name} has a tummy ache. She'll be fine, but no egg from her tomorrow.`, 0, 1); }
+    else if (bad === "salty") { tilesOf("waterer").forEach(i => S.grid[i].lvl = Math.max(0, S.grid[i].lvl - 30)); eat.forEach(h => h.happy = Math.max(10, h.happy - 3)); toast("💧 So salty! The hens are guzzling water. Check the waterer.", 0, 1); }
+    else if (bad === "onion") toast(`🧅 Tomorrow's eggs from ${eat.slice(0, 2).map(h => h.name.split(" ")[0]).join(" and ") || "the flock"} might taste a little oniony.`, 0, 1); }
+  if (S.treatN > treatBudget()) { S.stuffed = S.day + 1;
+    if (S.said.stuffDay !== S.day) { S.said.stuffDay = S.day; setTimeout(() => { say("They're stuffed, and now they're ignoring their feed. Oops. <i>Tip: keep treats and scraps to about 10% of what hens eat, roughly what they finish in 10 to 15 minutes. Fill up on treats and they skip the layer feed they need to lay.</i>", 1); toast("🥬 That's a lot of treats today. Expect a few fewer eggs tomorrow.", 0, 1); }, 1600); } }
+  else if (S.treatN === treatBudget()) setTimeout(() => toast("🥄 That's today's treat allowance. Save the rest for tomorrow!", 0, 1), 1600);
+  renderAll(); }
 /* ---------- SIMULATION ---------- */
 // Walk-away friendly: hens never die or leave. Health bottoms out at "grumpy" and recovers fast with food + water.
 const FLOOR = 40;
@@ -734,7 +962,8 @@ function tick() {
     h.health = Math.max(FLOOR, Math.min(100, h.health));
   });
   forageHour();
-  if (S.hour === 8) layEggs();
+  if (S.hour === 8) { layEggs(); fillBucket(1, "breakfast"); }
+  if (S.hour === 18) fillBucket(2, "dinner");
   if (S.hour === 14 && S.ground.length && !has("nest") && Math.random() < 0.15) { S.ground.shift(); sayOnce("eggeat", "One of the hens just ATE an egg. Her own egg! Is that allowed?? <i>Tip: egg eating can become a habit. Collect eggs often, use nest boxes, and keep calcium up so shells stay strong.</i>", 1); toast("🍳 A hen pecked open an egg and ate it!"); }
   if (S.hour === 7 && S.weather[1] === "Cold" && season()[1] === "Winter" && has("waterer") && Math.random() < 0.6) { tilesOf("waterer").forEach(i => { S.grid[i].lvl = 0; floatAt(i, "🧊 frozen!"); });
     sayOnce("frozen", "The water turned into a chicken popsicle. <i>Tip: in freezing weather, swap in fresh water a few times a day or use a heated waterer base.</i>", 1); }
@@ -761,7 +990,7 @@ function newDay() {
   if (HOL && HOL.k === "easter") { for (let k = 0; k < 3; k++) { const t = openTiles().filter(i => !S.grid[i]); if (t.length) S.ground.push({ tile: rnd(t), color: rnd(["blue", "green", "cream", "lightbrown"]), breed: "easter", hen: "the Easter hunt" }); } toast("🐰 Painted eggs are hidden around the yard!"); }
   S.event = S.day > 1 && Math.random() < 0.3 ? rnd(Object.keys(EVENTS)) : null;
   if (S.event) { toast(`${EVENTS[S.event][0]} ${EVENTS[S.event][1]}`); if (S.event === "bugs") for (let k = 0; k < 6; k++) spawnBug(); }
-  S.contestWon = false; rollDaily(); xp(3); realismDay();
+  S.contestWon = false; S.treatN = 0; rollDaily(); xp(3); realismDay();
   if (has("coop")) S.clean = Math.max(0, S.clean - 6 * COOPS[S.coopLvl].dirt * Math.max(1, S.hens.length));
   S.hens.forEach(h => { h.age = (h.age || 0) + 1; if (h.age === OLD_AGE) sayOnce("old" + h.id, `${h.name} is slowing down on eggs. Is she... retiring? <i>Tip: hens lay best in their first couple of years, then lay fewer eggs each year.</i>`, 1); });
   incubateDay();
@@ -778,8 +1007,9 @@ function newDay() {
 function layEggs() {
   const nests = tilesOf("nest");
   S.hens.forEach(h => {
+    if (h.tummy === S.day) return; // tummy ache from a bad scrap: she skips one day, then she's fine
     const ok = h.health > 40 && h.happy > 35 && !(S.locked && !has("nest")) && !(h.cond && ["molt", "broody", "eggbound"].includes(h.cond.k));
-    const rate = CH[h.breed].layRate * (season()[1] === "Winter" ? 0.55 : 1) * (S.weather[1] === "Cold" ? 0.85 : 1) * (isOld(h) ? 0.5 : 1);
+    const rate = CH[h.breed].layRate * (season()[1] === "Winter" ? 0.55 : 1) * (S.weather[1] === "Cold" ? 0.85 : 1) * (isOld(h) ? 0.5 : 1) * (S.stuffed === S.day ? 0.75 : 1); // too many treats yesterday = they skipped layer feed
     if (!ok || Math.random() > rate) return;
     if (S.day - S.calcium > 8 && Math.random() < 0.08) { toast(`🥚 ${h.name} laid a soft, rubbery egg.`); sayOnce("soft", "This egg is SQUISHY. Like a water balloon. <i>Tip: soft-shelled eggs often mean a hen needs more calcium. Offer oyster shell on the side.</i>", 1); return; }
     if (h.pers === "chatty") sayOnce("chatty" + S.day, `${h.name} laid an egg and is now SCREAMING about it. <i>Fact: hens often sing an 'egg song' after laying.</i>`, 1);
@@ -884,6 +1114,8 @@ function sfx(kind) { if (!soundOn || !ac() || AC.state !== "running") return; co
     else if (kind === "crow") { const o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain(); o.type = "sawtooth";
       [[0, 480], [0.12, 760], [0.35, 820], [0.7, 640], [1.0, 380]].forEach(([d, fr]) => o.frequency.linearRampToValueAtTime(fr, t + d)); f.type = "bandpass"; f.frequency.value = 1400; f.Q.value = 1.5;
       g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.4, t + 0.05); g.gain.setValueAtTime(0.4, t + 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.05); o.connect(f); f.connect(g); g.connect(B); o.start(t); o.stop(t + 1.1); }
+    else if (kind === "rattle") { for (let i = 0; i < 5; i++) noise(B, t + i * 0.065 + Math.random() * 0.02, 0.045, 0.2, 2600 + i * 350, "bandpass"); }
+    else if (kind === "plop") { noise(B, t, 0.1, 0.3, 450, "lowpass"); pluck(B, 50, t, 0.3, 0.12, "sine", 900); }
     else if (kind === "pour") { noise(B, t, 0.35, 0.25, 1200, "bandpass"); pluck(B, 79, t + 0.25, 0.15, 0.2, "sine", 4000); }
     else { const f = { lvl: [72, 76, 79, 84], warn: [62, 58], good: [76, 81] }[kind] || [76]; f.forEach((m, i) => pluck(B, m, t + i * 0.08, 0.25, 0.18, "triangle", 4000)); }
   } catch (e) {} }
@@ -914,6 +1146,7 @@ const GOALS = [
   ["sell1", "💰", "Sell eggs at the market", () => S.stats.sold >= 1, 5],
   ["scare1", "🦅", "Scare off a predator (tap it!)", () => S.stats.scared >= 1, 10],
   ["lock1", "🔒", "Lock the coop for a whole night", () => S.stats.nightsLocked >= 1, 8],
+  ["scraps1", "🥬", "Toss kitchen scraps to the hens", () => S.stats.scraps >= 1, 6],
   ["nest", "🪺", "Build a nest box", () => has("nest"), 6],
   ["roo", "🐓", "Get a rooster", () => !!S.rooster, 8],
   ["eggs10", "🧺", "Collect 10 eggs", () => S.lifetime >= 10, 10],
@@ -923,6 +1156,8 @@ const GOALS = [
   ["care1", "🩹", "Nurse a hen back to health", () => S.stats.cared >= 1, 10],
   ["colors3", "🌈", "Collect 3 egg colors", () => Object.keys(S.collection).length >= 3, 12],
   ["streak3", "🛡️", "3 safe nights", () => S.stats.safeNights >= 3, 15],
+  ["compost5", "♻️", "Compost 5 kitchen scraps", () => S.stats.compost >= 5, 8],
+  ["trained", "🪣", "Teach a hen the bucket rattle", () => S.hens.some(h => (h.scr || 0) >= 3), 12],
   ["forage20", "🪲", "Hens eat 20 bugs", () => S.foraged >= 20, 10],
   ["roowin", "💪", "Your rooster drives off a predator", () => S.stats.rooWins >= 1, 12],
   ["hatch1", "🐣", "Hatch a chick", () => S.hatched >= 1, 15],
@@ -931,9 +1166,9 @@ const GOALS = [
   ["golden", "✨", "Find a golden egg", () => (S.collection.golden || 0) >= 1, 25],
   ["barn", "🏚️", "Build the Barn coop", () => S.coopLvl >= 2, 30],
   ["rainbow", "🎨", "Collect all 7 egg colors", () => ["white", "brown", "lightbrown", "cream", "blue", "green", "chocolate"].every(c => S.collection[c]), 40]];
-const DQ = { eggs: ["🥚", n => `Collect ${n} eggs`], bugs: ["🪲", n => `Hens eat ${n} bugs`], sell: ["💰", n => `Sell ${n} eggs`], refill: ["🌾", n => `Refill feeders or waterers ${n} times`], scare: ["🦅", n => `Scare off a predator`], lock: ["🔒", n => `Lock the coop tonight`], pet: ["💛", n => `Tap your hens ${n} times`] };
+const DQ = { eggs: ["🥚", n => `Collect ${n} eggs`], scraps: ["🥬", n => `Share ${n} kitchen scraps`], bugs: ["🪲", n => `Hens eat ${n} bugs`], sell: ["💰", n => `Sell ${n} eggs`], refill: ["🌾", n => `Refill feeders or waterers ${n} times`], scare: ["🦅", n => `Scare off a predator`], lock: ["🔒", n => `Lock the coop tonight`], pet: ["💛", n => `Tap your hens ${n} times`] };
 function rollDaily() { const keys = Object.keys(DQ).sort(() => Math.random() - 0.5).slice(0, 3);
-  const n = { eggs: Math.max(2, Math.min(6, S.hens.length + 1)), bugs: 5, sell: 3, refill: 2, scare: 1, lock: 1, pet: 3 };
+  const n = { eggs: Math.max(2, Math.min(6, S.hens.length + 1)), bugs: 5, sell: 3, scraps: 2, refill: 2, scare: 1, lock: 1, pet: 3 };
   S.dq = keys.map(k => ({ k, n: n[k], r: 6 + Math.floor(Math.random() * 5), done: false })); S.today = {}; }
 function bump(k, n = 1) { S.today[k] = (S.today[k] || 0) + n; }
 function checkGoals() {
@@ -1039,7 +1274,7 @@ const roo = () => S.rooster ? ROOS[S.rooster.breed].guard : null;
 let threat = null;
 const hensOut = () => !isNight() && !(S.locked && has("coop"));
 function coverSpot() { const t = [...tilesOf("tree"), ...tilesOf("run"), ...tilesOf("coop")]; if (!t.length) return null; const p = tilePos(rnd(t)); p.x += Math.random() * 5; p.y += Math.random() * 4; return p; }
-function runForCover(ms, only) { const now = performance.now(); (only || S.hens).forEach(h => { const p = coverSpot(); if (!p) return; h.flip = p.x < h.x; h.x = p.x; h.y = p.y; h.busy = true; h.run = true; h.next = now + ms;
+function runForCover(ms, only) { frenzies.forEach(f => endFrenzy(f, "abort")); const now = performance.now(); (only || S.hens).forEach(h => { const p = coverSpot(); if (!p) return; h.flip = p.x < h.x; h.x = p.x; h.y = p.y; h.busy = true; h.run = true; h.next = now + ms;
   setTimeout(() => { h.busy = false; h.run = false; }, ms); }); if (S.rooster) { S.rooster.run = true; setTimeout(() => S.rooster && (S.rooster.run = false), 2000); } renderHens(); }
 const pickW = o => { const e = Object.entries(o), tot = e.reduce((a, [, v]) => a + (v.w || v[2]), 0); let r = Math.random() * tot; for (const [k, v] of e) { r -= v.w || v[2]; if (r <= 0) return k; } return e[0][0]; };
 function dayThreat(kind, tut) {
@@ -1135,7 +1370,12 @@ function migrate(s) {
   ["sold", "nightsLocked", "scared", "safeNights", "rooWins", "cared"].forEach(k => s.stats[k] = s.stats[k] || 0); if (!s.stats.safeNights && s.stats.bestStreak) s.stats.safeNights = s.stats.bestStreak;
   s.login = s.login || {}; s.login.days = s.login.days || (s.login.last ? 1 : 0); (s.hens || []).forEach(h => { h.health = Math.max(40, h.health); });
   s.hens.forEach(h => { h.busy = false; h.run = false; h.next = 0; h.dust = false; if (!h.pers) h.pers = rnd(Object.keys(PERS)); s.seen[h.breed] = 1; });
-  if (s.rooster) { s.rooster.run = false; s.rooster.next = 0; }
+  if (s.rooster) { s.rooster.run = false; s.rooster.next = 0; s.rooster.spd = 0; }
+  // build 11: kitchen scraps. Returning farms find a seasonal scrap waiting so they discover the bucket.
+  s.hens.forEach(h => { h.spd = 0; h.xc = ""; });
+  ["scraps", "compost", "fills"].forEach(k => s.stats[k] = s.stats[k] || 0);
+  if (!Array.isArray(s.scraps)) { s.scraps = s.lifetime > 0 && s.hens.length ? [starterScrap()] : []; if (s.scraps.length) s.stats.fills = 1; }
+  s.scraps = s.scraps.filter(k => SCRAPS[k]).slice(0, BUCKET_MAX); if (s.compost == null) s.compost = 0; if (s.treatN == null) s.treatN = 0;
   (s.bugs || []).forEach(b => b.claimed = 0); if (!s.speed) s.speed = 1; if (s.tut == null) s.tut = 99; return s;
 }
 function loadSave() { try { const j = localStorage.getItem(SAVE_KEY); return j ? JSON.parse(j) : null; } catch (e) { return null; } }
@@ -1512,7 +1752,7 @@ let timer, wtimer;
 const hourMs = () => (isNight() ? 2000 : 4500) / S.speed;
 function step() { tick(); if (S.speed) timer = setTimeout(step, hourMs()); }
 function loop() { startLoop(); clearTimeout(timer); clearInterval(timer); if (S.speed) timer = setTimeout(step, hourMs()); clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
-$("#guyArt").innerHTML = guySVG; initParticles(); initPan(); audioBtns(); $("#lvBadge").onclick = () => { gTab = "today"; goalsModal(); }; $("#dqBtn").onclick = () => { gTab = "today"; goalsModal(); }; $("#nextBtn").onclick = hintTap; $("#gearBtn").onclick = () => settingsModal(); $("#musicBtn").onclick = e => { e.stopPropagation(); toggleMusic(); }; $("#sfxBtn").onclick = e => { e.stopPropagation(); toggleSound(); }; $("#flockChip").onclick = () => { shopTab = "hens"; shop(); }; $("#bubble").onclick = () => { if ($("#bubble").classList.contains("more")) modal(`<div class="bubblefull"><div class="guyMini">${guySVG}</div><p><b>Brayden:</b> ${$("#bubbleText").innerHTML}</p></div><button class="buy big" onclick="closeModal()">OK</button>`); }; $("#recenter").onclick = e => { e.stopPropagation(); recenter(); };
+$("#guyArt").innerHTML = guySVG; initParticles(); initPan(); audioBtns(); $("#scrapBtn").onclick = e => { e.stopPropagation(); scrapTray(); }; $("#lvBadge").onclick = () => { gTab = "today"; goalsModal(); }; $("#dqBtn").onclick = () => { gTab = "today"; goalsModal(); }; $("#nextBtn").onclick = hintTap; $("#gearBtn").onclick = () => settingsModal(); $("#musicBtn").onclick = e => { e.stopPropagation(); toggleMusic(); }; $("#sfxBtn").onclick = e => { e.stopPropagation(); toggleSound(); }; $("#flockChip").onclick = () => { shopTab = "hens"; shop(); }; $("#bubble").onclick = () => { if ($("#bubble").classList.contains("more")) modal(`<div class="bubblefull"><div class="guyMini">${guySVG}</div><p><b>Brayden:</b> ${$("#bubbleText").innerHTML}</p></div><button class="buy big" onclick="closeModal()">OK</button>`); }; $("#recenter").onclick = e => { e.stopPropagation(); recenter(); };
 
 // Demo states for screenshots: ?demo=yard|night|shop|hensshop|coopshop|guardshop|henmodal|incubator|share|title|hawk|predator|goals|book|trade|land|barn|care|visit
 const demo = new URLSearchParams(location.search).get("demo");
@@ -1550,6 +1790,9 @@ else {
   if (demo === "henmodal") henModal(S.hens[2].id);
   if (demo === "care") henModal(S.hens[2].id);
   if (demo === "goals") goalsModal();
+  if (demo === "scraps" || demo === "bucket") { S.scraps = ["pumpkin", "carrot", "avocado", "pasta"]; S.ground = []; S.goals.egg1 = 1; renderHUD(); coach(); }
+  if (demo === "scraps") setTimeout(() => tossScrap(0), 700);
+  if (demo === "bucket") scrapTray();
   if (demo === "book") { gTab = "book"; S.seen.zombie = 1; goalsModal(); }
   if (demo === "trade") { gTab = "trade"; goalsModal(); }
   if (demo === "visit") visitModal(farmSnap());
@@ -1563,8 +1806,8 @@ else {
   }
   if (demo === "share") shareCard({ color: "cream", breed: "ayam", hen: S.hens[3].name, tile: 0 });
   if (demo === "title") { demoMode = false; title(); demoMode = true; }
-  if (/^(yard|hawk|predator|night|barn)$/.test(demo)) { clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
+  if (/^(yard|hawk|predator|night|barn|scraps|bucket)$/.test(demo)) { clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
 }
 // test hooks (read-only debugging)
-window.__cc = { get S() { return S; }, musicNode: () => master, pan, dayThreat, nightThreat, mkCode, readCode, farmSnap, frameLog: () => frameLog, SAVE_KEY, audio: () => ({ state: AC && AC.state, musicOn, soundOn, tracks: Object.fromEntries(Object.entries(TRACKS).map(([k, T]) => [k, { loaded: !!T.buf, err: T.err, playing: !!T.src0, gain: T.gain && +T.gain.gain.value.toFixed(2), dur: T.buf && +T.buf.duration.toFixed(2) }])) }) };
+window.__cc = { get S() { return S; }, toss: i => tossScrap(i), tray: () => scrapTray(), fill: (n, m) => fillBucket(n, m || "dinner"), frenzy: () => [...frenzies].map(f => ({ k: f.k, ph: f.ph, x: +f.x.toFixed(1), y: +f.y.toFixed(1), cm: f.car && [+mOf(f.car).x.toFixed(1), +mOf(f.car).y.toFixed(1)], hm: f.hens.map(h => [+mOf(h).x.toFixed(0), +mOf(h).y.toFixed(0)]), steals: f.steals, hens: f.hens.length, car: f.car && f.car.name })), musicNode: () => master, pan, dayThreat, nightThreat, mkCode, readCode, farmSnap, frameLog: () => frameLog, SAVE_KEY, audio: () => ({ state: AC && AC.state, musicOn, soundOn, tracks: Object.fromEntries(Object.entries(TRACKS).map(([k, T]) => [k, { loaded: !!T.buf, err: T.err, playing: !!T.src0, gain: T.gain && +T.gain.gain.value.toFixed(2), dur: T.buf && +T.buf.duration.toFixed(2) }])) }) };
 })();

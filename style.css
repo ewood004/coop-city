@@ -525,3 +525,71 @@ body:has(#modal:not(.hidden)) #toast{top:auto;bottom:calc(var(--sab) + 92px)}
 .namerow .act{min-width:48px;flex:0 0 48px;font-size:20px}
 #nextBtn #goalTxt{line-height:1.12}
 @media (max-height:720px){#goalbar>button{height:auto;min-height:48px}#nextBtn{padding-top:4px;padding-bottom:4px}}
+
+/* --- build 11: kitchen scraps --- */
+#scrapBtn{position:absolute;right:60px;bottom:8px;z-index:20;height:44px;min-width:44px;padding:0 10px 0 8px;border:0;border-radius:22px;display:flex;align-items:center;gap:5px;
+ font:800 14px/1 var(--ui);color:var(--ink);background:linear-gradient(#fffdf8,#fff0cf);box-shadow:0 3px 0 var(--edge),0 5px 12px rgba(0,0,0,.25);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#scrapBtn .bi{font-size:22px;line-height:1}
+#scrapBtn b{min-width:20px;height:20px;border-radius:10px;background:#c9bfae;color:#fff;font:900 12px/20px var(--ui);text-align:center;padding:0 5px}
+#scrapBtn.has b{background:var(--red)}
+#scrapBtn.fresh{animation:scrapHey 1.3s ease-in-out infinite}
+#scrapBtn.bump .bi{animation:scrapBump .5s cubic-bezier(.3,1.6,.5,1)}
+#scrapBtn:active{transform:translateY(2px) scale(.95)}
+#scrapBtn.coach{z-index:21}
+@keyframes scrapHey{0%,100%{box-shadow:0 3px 0 var(--edge),0 0 0 0 rgba(255,197,49,.8)}50%{box-shadow:0 3px 0 var(--edge),0 0 0 8px rgba(255,197,49,0)}}
+@keyframes scrapBump{0%{transform:scale(1)}40%{transform:scale(1.35) rotate(-12deg)}100%{transform:none}}
+#fly i.toss{font-size:28px}
+.scrap{position:absolute;left:0;top:0;pointer-events:none;will-change:transform;line-height:1}
+.scrap span{display:block;font-size:22px;margin:-12px 0 0 -11px;filter:drop-shadow(0 2px 1px rgba(0,0,0,.35));animation:scrapLand .45s cubic-bezier(.3,1.6,.5,1);transition:transform .2s,opacity .35s}
+.scrap.big::before{content:"";position:absolute;left:-10px;top:4px;width:20px;height:6px;border-radius:50%;background:rgba(60,40,10,.28)}
+.scrap.held::before{opacity:0}
+.scrap.eaten::before,.scrap.linger::before{opacity:0;transition:opacity .4s}
+.scrap.bit span{font-size:12px;margin:-7px 0 0 -6px;animation-duration:.6s}
+.scrap.held span{transform:rotate(-20deg) translateY(-2px)}
+.scrap.eaten span{transform:scale(.2);opacity:0}
+.scrap.linger span{opacity:0;transition:opacity 2.5s .6s}
+@keyframes scrapLand{0%{transform:translateY(-14px) scale(.6)}60%{transform:translateY(0) scale(1.15,.85)}100%{transform:none}}
+.hen .bob.scratching{animation:scratch .2s ease-in-out 4 alternate}
+@keyframes scratch{from{transform:translate3d(-1px,1px,0) rotate(-8deg)}to{transform:translate3d(1px,0,0) rotate(5deg)}}
+.trayi{margin:0 0 8px;font-weight:600;color:var(--ink2);font-size:14px;line-height:1.35}
+.treatm{display:flex;align-items:center;gap:8px;background:#fff;border-radius:14px;padding:8px 12px;font-weight:800;font-size:14px}
+.treatm .dots{flex:1;display:flex;gap:4px;flex-wrap:wrap}
+.treatm .dots i{width:14px;height:14px;border-radius:50%;background:#eadfca}
+.treatm .dots i.on{background:#7cc36a}
+.treatm .dots i.over{background:#ff8a5c}
+.scraprow{gap:8px}
+.scraprow .se{font-size:30px;flex:0 0 40px;text-align:center}
+.scraprow .t{flex:1;min-width:0;line-height:1.2}
+.scraprow .t small{color:var(--ink2);font-weight:600}
+.scraprow .buy{flex:0 0 auto;padding:0 12px}
+.scraprow .cmp{flex:0 0 48px;min-width:48px;font-size:20px;padding:0}
+@media (max-width:360px){#scrapBtn .bl{display:none}}
+/* build 11b: polish pass */
+/* toasts: with any card up they live in a reserved strip above it, so they can never cover a modal button */
+#modal:not(:has(.title)){padding-top:calc(var(--sat) + 72px)}
+body:has(#modal:not(.hidden)) #toast{top:calc(var(--sat) + 8px);bottom:auto;padding:8px 14px;max-width:calc(100% - 20px)}
+/* during a scrap frenzy, toasts sit over the HUD instead of the yard where the chase is */
+#toast.fz,body:has(#modal.hidden) #toast.fz{top:calc(var(--sat) + 8px)}
+/* holiday hats come off for the frenzy so a 🎃 hat never looks like the 🎃 scrap */
+.hen .hat{transition:opacity .25s}
+.hen.frz .hat,#hens.frz .hat{opacity:0}
+/* the big scrap: larger, white outline, and it bounces while she runs with it */
+.scrap.big span{font-size:26px;margin:-14px 0 0 -13px;filter:drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff) drop-shadow(0 3px 2px rgba(0,0,0,.45))}
+.scrap.big::before{left:-12px;width:24px}
+.scrap.held span{font-size:30px;margin:-16px 0 0 -15px;transform:none;animation:carryBob .26s ease-in-out infinite alternate}
+@keyframes carryBob{from{transform:rotate(-16deg) translateY(0)}to{transform:rotate(-24deg) translateY(-4px)}}
+.scrap.held.eaten span,.scrap.eaten span{animation:none}
+.scrap.bit span{filter:drop-shadow(0 0 1px #fff) drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+/* tray rows: name on top, two clearly labeled buttons below */
+.scraprow{display:grid!important;grid-template-columns:40px 1fr;gap:6px 10px;align-items:center}
+.scraprow .sb{grid-column:1/-1;display:flex;gap:8px}
+.scraprow .sb>button{flex:1 1 0;min-height:44px;height:auto;padding:6px 8px;white-space:nowrap;font-size:14px;width:auto;min-width:0;margin:0}
+.scraprow .cmp{flex:1 1 0;font-size:14px}
+/* the scrap box must hug the emoji: a full-width block rotated around its middle flung the emoji far from the beak */
+.scrap{width:0;height:0}
+.scrap span{width:max-content;transform-origin:50% 50%}
+#goalTxt{text-wrap:balance}
+#scrapBtn.tuthide{display:none}
+/* small phones: keep a modal-time toast to two short lines so it always fits the reserved strip above the card */
+@media (max-width:360px){body:has(#modal:not(.hidden)) #toast{font-size:12.5px;line-height:1.25}}
+body:has(#modal:not(.hidden)) #toast{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
