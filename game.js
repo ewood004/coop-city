@@ -54,9 +54,10 @@ const ART = {
   fence: () => `<svg viewBox="0 0 100 100"><rect y="34" width="100" height="9" fill="#8d6e63"/><rect y="62" width="100" height="9" fill="#8d6e63"/>${[10,40,70].map(x=>`<path d="M${x} 90 V24 L${x+10} 14 L${x+20} 24 V90Z" fill="#bcaaa4" stroke="#6d4c41" stroke-width="2"/>`).join("")}</svg>`,
   tree: () => `<svg viewBox="0 0 100 100"><rect x="44" y="56" width="12" height="36" fill="#6d4c41"/><circle cx="50" cy="42" r="30" fill="#388e3c"/><circle cx="36" cy="34" r="16" fill="#43a047"/><circle cx="62" cy="30" r="14" fill="#4caf50"/></svg>`,
   incubator: () => `<svg viewBox="0 0 100 100"><rect x="12" y="34" width="76" height="54" rx="10" fill="#eceff1" stroke="#78909c" stroke-width="3"/><rect x="22" y="44" width="56" height="28" rx="6" fill="#ffe0b2" stroke="#90a4ae" stroke-width="2"/>${[34,50,66].map(x=>`<ellipse cx="${x}" cy="58" rx="6" ry="8" fill="#f7f4ea" stroke="#0003"/>`).join("")}<circle cx="78" cy="80" r="3" fill="#ef5350"/><rect x="22" y="78" width="30" height="5" rx="2" fill="#4fc3f7"/></svg>`,
-  hand: () => `<svg viewBox="0 0 100 100"><text x="50" y="68" font-size="56" text-anchor="middle">👆</text></svg>`,
+  hand: () => `<svg viewBox="0 0 100 100"><text x="50" y="70" font-size="58" text-anchor="middle">✋</text></svg>`,
   bulldoze: () => `<svg viewBox="0 0 100 100"><text x="50" y="68" font-size="56" text-anchor="middle">🧹</text></svg>`
 };
+const BUILD = "build 9 · polish pass";
 const guySVG = `<svg viewBox="0 0 60 72"><circle cx="30" cy="9" r="6" fill="#5d4037"/><circle cx="30" cy="22" r="13" fill="#f1c7a0"/><path d="M17 18 Q30 4 43 18 Q30 12 17 18Z" fill="#5d4037"/><rect x="18" y="18" width="10" height="6" rx="2" fill="#111"/><rect x="32" y="18" width="10" height="6" rx="2" fill="#111"/><line x1="28" y1="21" x2="32" y2="21" stroke="#111" stroke-width="1.5"/><path d="M25 29 Q30 32 35 29" stroke="#8a4a2a" stroke-width="1.6" fill="none"/><path d="M12 72 V46 Q30 34 48 46 V72Z" fill="#7e57c2"/><path d="M20 38 Q30 46 40 38 L40 44 Q30 50 20 44Z" fill="#ff7043"/><rect x="44" y="48" width="10" height="14" rx="2" fill="#fff" stroke="#795548"/><rect x="44" y="52" width="10" height="4" fill="#8d6e63"/></svg>`;
 
 /* ---------- COOP ART PER LEVEL ---------- */
@@ -98,7 +99,7 @@ function placeCoop(tl, lvl) { S.grid.forEach((g, i) => { if (g && (g.type === "c
 
 /* ---------- CONFIG ---------- */
 const ITEMS = {
-  hand:    { name: "Tap", cost: 0 },
+  hand:    { name: "Hand", cost: 0 },
   coop:    { name: "Coop", cost: 30, max: 1, joke: "I bought a coop! Wait, the chickens sleep in it? Like a tiny hotel?", tip: "Hens roost in a coop at night. Lock it after dark to keep predators out." },
   feeder:  { name: "Feeder", cost: 10, joke: "Tried feeding them avocado toast. Nope. Layer feed it is.", tip: "Laying hens need layer feed every day. Tap a feeder to pour in a scoop from your feed bag. Buy more feed in the Shop." },
   waterer: { name: "Water", cost: 8, joke: "They don't want my sparkling water? Rude.", tip: "Fresh water is a must. No water, no eggs. Tap to refill (free)." },
@@ -168,8 +169,9 @@ window.plotModal = plotModal;
 const pan = { x: 0, y: 0, z: 1, vx: 0, vy: 0, drag: false, goto: null, t: "" };
 const ptrs = new Map(); let downAt = null, pinch0 = null;
 const worldW = () => yardW * COLS / VC, worldH = () => yardH * ROWS / VR;
-function panBounds() { return { mx: Math.max(0, worldW() * pan.z - yardW), my: Math.max(0, worldH() * pan.z - yardH) }; }
-function panTo(ux, uy) { const b = panBounds(); pan.goto = { x: Math.min(b.mx, Math.max(0, ux * yardW / 100 * pan.z - yardW / 2)), y: Math.min(b.my, Math.max(0, uy * yardH / 100 * pan.z - yardH / 2)) }; pan.vx = pan.vy = 0; }
+function panBounds() { return { mx: Math.max(0, worldW() * pan.z - yardW), my: Math.max(0, worldH() * pan.z - viewH) }; }
+const zMin = () => Math.max(0.5, viewH / (worldH() || 1), yardW / (worldW() || 1));
+function panTo(ux, uy) { const b = panBounds(); pan.goto = { x: Math.min(b.mx, Math.max(0, ux * yardW / 100 * pan.z - yardW / 2)), y: Math.min(b.my, Math.max(0, uy * yardH / 100 * pan.z - viewH / 2)) }; pan.vx = pan.vy = 0; }
 window.recenter = () => { const c = tilesOf("coop")[0]; const p = c !== undefined ? tilePos(c) : { x: 50, y: 50 }; pan.zGoal = 1; panTo(p.x + 8, p.y + 8); };
 function stepPan(dt) {
   const b = panBounds();
@@ -183,7 +185,7 @@ function stepPan(dt) {
   }
   const t = `translate3d(${(-pan.x).toFixed(1)}px,${(-pan.y).toFixed(1)}px,0) scale(${pan.z.toFixed(3)})`;
   if (t !== pan.t) { pan.t = t; $("#world").style.transform = t; const mv = $("#miniView");
-    if (mv) mv.style.transform = `translate3d(${(pan.x / (worldW() * pan.z) * 54).toFixed(1)}px,${(pan.y / (worldH() * pan.z) * 54).toFixed(1)}px,0) scale(${(yardW / (worldW() * pan.z)).toFixed(3)},${(yardH / (worldH() * pan.z)).toFixed(3)})`; }
+    if (mv) mv.style.transform = `translate3d(${(pan.x / (worldW() * pan.z) * 54).toFixed(1)}px,${(pan.y / (worldH() * pan.z) * 54).toFixed(1)}px,0) scale(${(yardW / (worldW() * pan.z)).toFixed(3)},${Math.min(1, viewH / (worldH() * pan.z)).toFixed(3)})`; }
 }
 // Touch input for the world. Build 7 relied on the browser's synthesized "click" after a pointer gesture and
 // treated any wiggle over 8px as a drag (which silently ate the tap). Build 8 detects taps itself from pointer
@@ -192,12 +194,12 @@ function stepPan(dt) {
 const TAP_SLOP = 14, TAP_QUICK = 24, TAP_QUICK_MS = 300;
 function initPan() {
   const vp = $("#grid-wrap");
-  vp.addEventListener("pointerdown", e => { if (e.button > 0 || e.target.closest("#recenter")) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  vp.addEventListener("pointerdown", e => { if (e.button > 0 || e.target.closest("#recenter, #dock")) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const fling = Math.hypot(pan.vx, pan.vy) > 260; pan.vx = 0; pan.vy = 0; pan.goto = null;
     if (ptrs.size === 1) downAt = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y, t: performance.now(), lx: e.clientX, ly: e.clientY, lt: performance.now(), max: 0, fling, multi: false };
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = { d: Math.hypot(a.x - b.x, a.y - b.y), z: pan.z, px: pan.x, py: pan.y, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; pan.drag = true; if (downAt) downAt.multi = true; } });
   window.addEventListener("pointermove", e => { if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (ptrs.size === 2 && pinch0) { const [a, b] = [...ptrs.values()], r = vp.getBoundingClientRect(); const z = Math.min(1.4, Math.max(0.5, pinch0.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch0.d));
+    if (ptrs.size === 2 && pinch0) { const [a, b] = [...ptrs.values()], r = vp.getBoundingClientRect(); const z = Math.min(1.4, Math.max(zMin(), pinch0.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch0.d));
       const mx = pinch0.mx - r.left, my = pinch0.my - r.top; pan.x = (pinch0.px + mx) * z / pinch0.z - mx; pan.y = (pinch0.py + my) * z / pinch0.z - my; pan.z = z; return; }
     if (!downAt) return; downAt.max = Math.max(downAt.max, Math.hypot(e.clientX - downAt.sx, e.clientY - downAt.sy));
     if (!pan.drag && downAt.max > TAP_SLOP && !(downAt.max <= TAP_QUICK && performance.now() - downAt.t < 120)) { pan.drag = true; downAt.x = e.clientX; downAt.y = e.clientY; downAt.px = pan.x; downAt.py = pan.y; }
@@ -237,7 +239,7 @@ function worldTap(x, y) {
   // 4) tiles, signs, equipment
   if (tile) return tileTap(find(els, "[data-plot]") || tile);
 }
-function tapFX(t) { if (!t) return; t.classList.remove("tapped"); void t.offsetWidth; t.classList.add("tapped"); clearTimeout(t._tt); t._tt = setTimeout(() => t.classList.remove("tapped"), 420); }
+function tapFX(t) { if (!t) return; buzz(8); t.classList.remove("tapped"); void t.offsetWidth; t.classList.add("tapped"); clearTimeout(t._tt); t._tt = setTimeout(() => t.classList.remove("tapped"), 420); }
 function renderMini() { const m = $("#mini"); if (!m) return; const sig = S.land.join();
   if (m._s === sig) return; m._s = sig;
   m.innerHTML = Object.entries(PLOTS).map(([k, [x, y, w, h]]) => `<i class="${S.land.includes(k) ? "own" : ""}" style="left:${x / COLS * 100}%;top:${y / ROWS * 100}%;width:${w / COLS * 100}%;height:${h / ROWS * 100}%"></i>`).join("") + `<b id="miniView"></b>`; pan.t = ""; }
@@ -251,8 +253,8 @@ function fresh(breed = "leghorn") {
     bugs: [], tufts: Array(N).fill(null), wormy: 0, foraged: 0 };
   migrate(S); initTufts(); rollDaily();
   // Starter yard: a basic coop, feeder, and waterer so new players aren't overwhelmed
-  [["coop", 7], ["feeder", 13], ["waterer", 14]].forEach(([t, i]) => S.grid[T6(i)] = { type: t, lvl: 100 });
-  addHen(breed, true);
+  [["coop", 7], ["feeder", 13], ["waterer", 14]].forEach(([t, i]) => S.grid[T6(i)] = { type: t, lvl: t === "feeder" ? 25 : t === "waterer" ? 35 : 100 });
+  addHen(breed, true); S.tut = 0;
 }
 function addHen(breed, free, mix) {
   const b = CH[breed];
@@ -280,20 +282,29 @@ const isNight = () => S.hour >= 20 || S.hour < 6;
 
 /* ---------- UI helpers ---------- */
 let bubbleTimer;
-function say(text, tip) { $("#bubbleText").innerHTML = text; $("#bubble").classList.toggle("tip", !!tip); }
-function sayOnce(key, text, tip) { if (S.said[key]) return; S.said[key] = 1; say(text, tip); }
+let tutHold = 0;
+function say(text, tip, force) { if (!force && S && S.tut < TUT.length && performance.now() < tutHold) return false;
+  $("#bubbleText").innerHTML = text; const b = $("#bubble"); b.classList.toggle("tip", !!tip); b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop");
+  b.classList.remove("more"); requestAnimationFrame(() => b.classList.toggle("more", b.scrollHeight > b.clientHeight + 3)); return true; }
+function sayOnce(key, text, tip) { if (S.said[key]) return; if (say(text, tip) !== false) S.said[key] = 1; }
 // toasts queue briefly so a quest/badge toast doesn't instantly hide "Feeder filled!"
 const toastQ = []; let toastBusy = 0;
-function toast(t, now) { if (now) { toastQ.unshift(t); toastBusy = 0; return toastNext(); } if (toastQ.length > 3) toastQ.shift(); toastQ.push(t); if (!toastBusy) toastNext(); }
-function toastNext() { const el = $("#toast"), t = toastQ.shift(); if (t == null) { toastBusy = 0; return; } toastBusy = 1;
-  el.textContent = t; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), 2200); clearTimeout(toastNext._t); toastNext._t = setTimeout(toastNext, 1300); }
+function toast(t, now) { t = { t, at: performance.now() }; if (now) { toastQ.unshift(t); toastBusy = 0; return toastNext(); } if (toastQ.length > 3) toastQ.shift(); toastQ.push(t); if (!toastBusy) toastNext(); }
+function toastNext() { const el = $("#toast"); clearTimeout(toastNext._t);
+  if (toastQ.length && $("#modalCard .title")) { toastQ.forEach(q => q.at = performance.now()); toastBusy = 1; toastNext._t = setTimeout(toastNext, 600); return; } // hold toasts while the title card is up
+  let q; while ((q = toastQ.shift()) && performance.now() - q.at > 7000) {} // drop stale news
+  if (!q) { toastBusy = 0; return; } toastBusy = 1; const t = q.t;
+  const dur = Math.min(4200, 1500 + t.length * 38);
+  el.textContent = t; el.classList.remove("on"); void el.offsetWidth; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), dur); toastNext._t = setTimeout(toastNext, toastQ.length ? Math.min(dur, 1800) : dur + 200); }
 function floatAt(i, text) {
   const el = document.createElement("div"); el.className = "float"; el.textContent = text;
   const p = tilePos(i); el.style.left = ux(p.x + 2); el.style.top = uy(p.y - 1);
   $("#fx").appendChild(el); setTimeout(() => el.remove(), 1300);
 }
-function modal(html) { $("#modalCard").innerHTML = html; $("#modal").classList.remove("hidden"); }
-function closeModal() { $("#modal").classList.add("hidden"); }
+function modal(html) { const m = $("#modal"), c = $("#modalCard"); clearTimeout(m._t); m.classList.remove("closing"); c.innerHTML = html; c.scrollTop = 0;
+  if (m.classList.contains("hidden")) { m.classList.remove("hidden"); m.classList.remove("show"); void m.offsetWidth; m.classList.add("show"); } if (S && S.started) requestAnimationFrame(coach); }
+function closeModal() { const m = $("#modal"); if (m.classList.contains("hidden") || m.classList.contains("closing")) return; m.classList.add("closing");
+  m._t = setTimeout(() => { m.classList.add("hidden"); m.classList.remove("closing", "show"); if (S && S.started) coach(); }, 170); }
 window.closeModal = closeModal;
 
 /* ---------- RENDER ---------- */
@@ -329,7 +340,7 @@ function renderGrid() {
   if (grid.children.length !== N) { grid.innerHTML = Array.from({ length: N }, (_, i) => `<div class="tile" data-i="${i}"></div>`).join(""); tileCache.length = 0; }
   for (let i = 0; i < N; i++) {
     const t = grid.children[i], html = tileHTML(i), g0 = S.grid[i];
-    const cls = "tile" + (owned(i) ? "" : " forsale") + (g0 && g0.type === "coop" ? " hascoop" : "") + (g0 && g0.type === "pond" ? " water" : "");
+    const cls = "tile" + (owned(i) ? (g0 ? "" : " free") : " forsale") + (g0 && g0.type === "coop" ? " hascoop" : "") + (g0 && g0.type === "pond" ? " water" : "");
     if (t._c !== cls) { t.className = cls; t._c = cls; }
     if (tileCache[i] !== html) { t.innerHTML = html; tileCache[i] = html; }
     const g = S.grid[i];
@@ -338,8 +349,9 @@ function renderGrid() {
 }
 /* Hens: one element per bird, created once and moved with GPU transforms. */
 const henEls = new Map();
-let yardW = 0, yardH = 0;
-function measureYard() { const el = $("#grid-wrap"); yardW = el.clientWidth; yardH = el.clientHeight; pan.t = ""; }
+let yardW = 0, yardH = 0, viewH = 0;
+// The yard viewport can be any height (it flexes to fill the phone). World units stay tied to the width (square tiles).
+function measureYard() { const el = $("#grid-wrap"); yardW = el.clientWidth; yardH = yardW * 4 / 3; viewH = el.clientHeight; pan.t = ""; if (pan.z < zMin()) pan.z = zMin(); }
 // Keep birds fully inside the yard (hen is 15% wide, about 11% tall)
 const xf = (x, y) => { x = Math.min(85, Math.max(0, x)); y = Math.min(89, Math.max(0, y)); return `translate(${(x * yardW / 100).toFixed(1)}px,${(y * yardH / 100).toFixed(1)}px)`; };
 function birdEl(key, svg, attrs) {
@@ -448,35 +460,163 @@ function renderHens() {
   const bar = $("#henbar");
   if (sig !== henbarSig) {
     henbarSig = sig;
-    bar.innerHTML = (S.hens.map(h => `<div class="hencard${h.cond ? " alert" : ""}" data-card="${h.id}">${henSVG(h.breed)}<div>${h.cond ? `<span class="cbadge">${COND[h.cond.k][0]}</span>` : ""}<b>${h.name}</b> <span style="opacity:.6">${breedLabel(h)}</span>${isOld(h) ? ` <span class="old">older</span>` : ""}
-   <div class="bar"><i style="background:#e57373"></i></div><div class="bar"><i style="background:#ffca28"></i></div></div></div>`).join("") || `<div class="hencard">No hens yet. Visit the 🛒 Shop!</div>`)
-     + (S.rooster ? `<div class="hencard" data-card="roo">${rooSVG()}<div><b>${S.rooster.name}</b> <span style="opacity:.6">${ROOS[S.rooster.breed].name}</span></div></div>` : "");
+    bar.innerHTML = (S.hens.map(h => `<button class="hencard${h.cond ? " alert" : ""}" data-card="${h.id}" aria-label="${esc(h.name)}, ${breedLabel(h)}">${henSVG(h.breed)}<span class="hc"><b>${h.cond ? `<span class="cbadge">${COND[h.cond.k][0]}</span>` : ""}${h.name}</b>
+   <span class="bars"><span class="bl">❤️</span><span class="bar"><i style="background:linear-gradient(90deg,#ff7a7a,#e5533d)"></i></span><span class="bl">😊</span><span class="bar"><i style="background:linear-gradient(90deg,#ffe066,#ffb41f)"></i></span></span></span></button>`).join("") || `<div class="hencard empty">No hens yet. Tap 🐔 to adopt one!</div>`)
+     + (S.rooster ? `<button class="hencard roo" data-card="roo">${rooSVG()}<span class="hc"><b>${S.rooster.name}</b><span class="bars"><span class="bl">🐓 ${ROOS[S.rooster.breed].name}</span></span></span></button>` : "");
   }
   S.hens.forEach((h, k) => { const c = bar.children[k]; if (!c) return; const [a, b] = c.querySelectorAll(".bar i");
     const w1 = Math.round(h.health) + "%", w2 = Math.round(h.happy) + "%"; if (a.style.width !== w1) a.style.width = w1; if (b.style.width !== w2) b.style.width = w2; });
 }
 // Only re-place birds when the yard WIDTH really changes (rotation, desktop resize). Mobile address-bar
 // show/hide and HUD text changes must not snap hens. The yard is square tiles, so height follows width.
-if (window.ResizeObserver) new ResizeObserver(() => { const w = $("#grid-wrap").clientWidth; if (Math.abs(w - yardW) < 4) return; measureYard(); if (S) renderHens(); }).observe($("#grid-wrap"));
+if (window.ResizeObserver) new ResizeObserver(() => { const el = $("#grid-wrap"), w = el.clientWidth; if (Math.abs(el.clientHeight - viewH) >= 2) { viewH = el.clientHeight; pan.t = ""; if (pan.z < zMin()) pan.z = zMin(); } if (Math.abs(w - yardW) < 4) return; measureYard(); if (S) renderHens(); }).observe($("#grid-wrap"));
+function setTxt(sel, v) { const el = $(sel); if (el && el.textContent !== String(v)) el.textContent = v; }
+function setHTML(el, v) { if (el && el._h !== v) { el._h = v; el.innerHTML = v; } }
 function renderHUD() {
-  $("#coins").textContent = S.coins; $("#day").textContent = S.day;
-  $("#clock").textContent = `${(S.hour % 12) || 12}:00 ${S.hour < 12 ? "am" : "pm"}`;
-  $("#clockIcon").textContent = isNight() ? "🌙" : "☀️";
-  const wx = season()[0] + S.weather.join(" "); if ($("#weather").textContent !== wx) $("#weather").textContent = wx;
+  setTxt("#coins", S.coins); setTxt("#day", S.day);
+  setTxt("#clock", `${(S.hour % 12) || 12}${S.hour < 12 ? "am" : "pm"}`);
+  setTxt("#clockIcon", isNight() ? "🌙" : S.weather[0]); $("#clockStat").title = `${season()[1]} · ${S.weather[1]}`;
   renderGoalbar();
-  $("#basketN").textContent = S.basket.length;
-  $("#capN").textContent = `${S.hens.length}/${capacity()}`;
-  $("#feedN").textContent = S.feed; $("#cleanN").textContent = Math.round(S.clean) + "%";
+  setTxt("#basketN", S.basket.length);
+  setTxt("#capN", `${S.hens.length}/${capacity()}`);
+  setTxt("#feedN", S.feed); setTxt("#cleanN", Math.round(S.clean) + "%");
   $("#cleanStat").classList.toggle("warn", S.clean < 30); $("#feedStat").classList.toggle("warn", S.feed < 2);
-  const lb = $("#lockBtn"); lb.textContent = S.locked ? "🔒 Locked" : "🔓 Coop open"; lb.classList.toggle("locked", S.locked);
-  $("#speedBtn").textContent = S.speed ? `▶︎ ${S.speed}x` : "⏸ Paused";
+  const lb = $("#lockBtn"); setHTML(lb, S.locked ? `<span class="ai">🔓</span><span class="al">Let out</span>` : `<span class="ai">🔒</span><span class="al">Lock coop</span>`); lb.classList.toggle("locked", S.locked);
+  lb.classList.toggle("pulse", has("coop") && !S.locked && isNight() && S.hens.length > 0); lb.classList.toggle("pulse2", has("coop") && S.locked && !isNight() && S.hour >= 7 && S.hour < 18 && S.tut >= TUT.length);
+  const sb = $("#sellBtn"), val = S.basket.reduce((a, e) => a + eggPrice(e), 0);
+  setHTML(sb, `<span class="ai">💰</span><span class="al">Sell${S.basket.length ? ` <em>${val}🪙</em>` : ""}</span>`); sb.classList.toggle("pulse", S.basket.length >= 6);
+  setHTML($("#speedBtn"), S.speed ? `<span class="ai">${S.speed > 1 ? "⏩" : "▶️"}</span><span class="al">Speed ${S.speed}×</span>` : `<span class="ai">⏸️</span><span class="al">Paused</span>`);
   const nl = String(NIGHT_RAMP[S.hour]), ng = $("#night");
   if (ng.style.opacity !== nl) { if (!ng._init) { ng._init = 1; ng.style.transition = "none"; requestAnimationFrame(() => requestAnimationFrame(() => ng.style.transition = "")); } ng.style.opacity = nl; }
   const rain = S.weather[1] === "Rain"; if (!!$("#sky").firstChild !== rain) $("#sky").innerHTML = rain ? `<div class="rain"></div>` : "";
 }
 // Gradual dusk and dawn (opacity of the night overlay by hour; CSS transitions between them)
 const NIGHT_RAMP = [.62,.62,.62,.62,.6,.5,.3,.12,0,0,0,0,0,0,0,0,0,0,.06,.18,.4,.55,.6,.62];
-function renderAll() { checkGoals(); renderHUD(); renderGrid(); renderHens(); renderForage(); renderMini(); saveSoon(); }
+function renderAll() { checkGoals(); tutCheck(); renderHUD(); renderGrid(); renderHens(); renderForage(); renderMini(); needGlow(); coach(); saveSoon(); }
+/* ---------- BUILD 9: ONBOARDING, NEXT-STEP COACH, JUICE ---------- */
+const tileOf = t => tilesOf(t)[0];
+const firstEggTile = () => S.ground.length ? S.ground[0].tile : undefined;
+// Guided first-run tutorial: one clear step at a time, each with a pulsing pointer on the exact thing to tap.
+const TUT = [
+  { k: "feed", t: "Tap the feeder to fill it", tile: () => tileOf("feeder"), done: () => { const f = S.grid[tileOf("feeder")]; return !f || f.lvl >= 95; },
+    say: "Okay, step one. The hens are hungry and the feeder is almost empty. Tap the feeder! <i>Tip: laying hens eat a complete layer feed, about 16% protein, and a hen eats roughly a quarter pound a day.</i>" },
+  { k: "water", t: "Tap the waterer to refill it", tile: () => tileOf("waterer"), done: () => { const w = S.grid[tileOf("waterer")]; return !w || w.lvl >= 95; },
+    say: "Nice! Now the water. Tap the waterer. <i>Tip: an egg is mostly water, so hens stop laying fast without clean, fresh water.</i>" },
+  { k: "egg", t: "Tap the egg to collect it", tile: firstEggTile, done: () => S.lifetime >= 1, start: () => tutEgg(),
+    say: "WAIT. She laid an egg! Right there in the grass! Tap it to put it in your basket. <i>Tip: a healthy hen lays about one egg a day at most, since each egg takes around 25 hours to form.</i>" },
+  { k: "sell", t: "Tap 💰 Sell, then Sell all", el: () => $("#modal").classList.contains("hidden") ? "#sellBtn" : "#sellAllBtn", done: () => S.stats.sold >= 1,
+    say: "Our first egg! Let's sell it. Tap 💰 Sell down below. <i>Tip: coins buy feed, more hens, and coop upgrades.</i>" },
+  { k: "lock", t: "Tap the coop to lock it", tile: () => tileOf("coop"), done: () => S.locked,
+    say: "Last thing. Every night you HAVE to lock the coop. Practice now: tap the coop. <i>Tip: raccoons, foxes, and owls do most of their hunting at night, and a locked coop is the best defense.</i>" },
+  { k: "open", t: "Tap the coop again to let them out", tile: () => tileOf("coop"), done: () => !S.locked || isNight(),
+    say: "Locked! Do that every night. Now tap the coop again to let them out to look for bugs. <i>Tip: the 🔒 button below does the same thing.</i>" },
+  { k: "hawk", t: "Tap the hawk to scare it off!", el: () => ".threat.tappable", done: () => S.said.tutHawkDone || isNight(), start: () => setTimeout(tutHawk, 1200),
+    say: "Uh oh. Something's circling. If a predator shows up, tap it fast to scare it off!" }];
+function tutEgg() { if (S.ground.length) return; const c = tileOf("coop") ?? 0, h = S.hens[0]; const near = [c + 2, c + COLS + 2, c + 2 * COLS, c + 2 * COLS + 1].find(i => owned(i) && !S.grid[i]) ?? openTiles()[0];
+  S.ground.push({ tile: near, color: h ? h.egg : "white", breed: h ? h.breed : "leghorn", hen: h ? h.name : "", fertile: false }); renderAll(); }
+function tutHawk() { if (S.tut >= TUT.length || TUT[S.tut].k !== "hawk") return; if (threat || isNight() || !hensOut()) { S.said.tutHawkDone = 1; return renderAll(); }
+  dayThreat("hawk", true); if (!threat) { S.said.tutHawkDone = 1; renderAll(); } }
+function tutCheck() {
+  if (!S || S.tut == null || S.tut >= TUT.length || demoMode) return;
+  let moved = false;
+  while (S.tut < TUT.length && TUT[S.tut].done()) { S.tut++; moved = true; if (S.tut < TUT.length || S.said.tutHawkDone) coinFly(5, coachPoint()); S.coins += 5; }
+  if (!moved && S.tut === 0 && !S.said.tut0) { S.said.tut0 = 1; tutSay(); }
+  if (!moved) return;
+  if (S.tut >= TUT.length) { gain(15); confetti(); buzz(30); tutHold = 0;
+    say(`You're a natural${S.player ? ", " + esc(S.player) : ""}! I'm basically your assistant now. The bar at the top always shows what to do next. <i>Tip: tap ⚙️ for How to play and settings.</i>`, 1, 1);
+    toast("🎓 Tutorial done! +15🪙", 1); S.said.tutDone = 1; return; }
+  tutSay(); const st = TUT[S.tut]; if (st.start) st.start();
+}
+function tutSay() { const st = TUT[S.tut]; say(`<b class="step">Step ${S.tut + 1}/${TUT.length}</b> ${S.tut === 0 ? `${S.player ? `Hi ${esc(S.player)}! ` : ""}Grandma left us a coop, a feeder, and a waterer. ` : ""}${st.say}`, 1, 1); tutHold = performance.now() + 60000; }
+// "One obvious next step at all times": tutorial step, then urgent care, then the next badge goal.
+function nextHint() {
+  if (S.tut < TUT.length) { const st = TUT[S.tut]; return { t: st.t, tile: st.tile && st.tile(), el: st.el && st.el(), step: `STEP ${S.tut + 1}/${TUT.length}` }; }
+  if (threat && !threat.done) return { t: `Tap the ${threat.T.name.toLowerCase()} to scare it off!`, el: ".threat.tappable", urgent: 1 };
+  const coop = tileOf("coop"), fd = tilesOf("feeder").find(i => S.grid[i].lvl < 30), wt = tilesOf("waterer").find(i => S.grid[i].lvl < 30);
+  if (coop !== undefined && isNight() && !S.locked && S.hens.length) return { t: "It's dark: tap the coop to lock it", tile: coop, urgent: 1 };
+  if (wt !== undefined) return { t: "Water is low: tap the waterer", tile: wt, urgent: 1 };
+  if (fd !== undefined) return S.feed > 0 ? { t: "Feeder is low: tap it to refill", tile: fd, urgent: 1 } : { t: "Out of feed: buy a bag in Shop → Supplies", act: () => { shopTab = "supplies"; shop(); }, el: "#shopBtn", urgent: 1 };
+  if (S.ground.length) return { t: `Collect ${S.ground.length > 1 ? S.ground.length + " eggs" : "the egg"} in the yard`, tile: S.ground[0].tile };
+  if (S.feed < 2) return { t: "Feed is running low: Shop → Supplies", act: () => { shopTab = "supplies"; shop(); }, el: "#shopBtn" };
+  if (S.clean < 40) return { t: "Coop is dirty: buy pine shavings in Supplies", act: () => { shopTab = "supplies"; shop(); }, el: "#shopBtn" };
+  if (S.basket.length >= 6) return { t: `Sell your ${S.basket.length} eggs`, el: "#sellBtn" };
+  if (coop !== undefined && S.locked && !isNight() && S.hour >= 7 && S.hour < 18) return { t: "Morning! Tap the coop to let the hens out", tile: coop };
+  const g = nextGoal(); return g ? { t: `${g[1]} ${g[2]} · +${g[4]}🪙`, act: () => { gTab = "badges"; goalsModal(); }, goal: 1 } : { t: "🏆 All badges earned!", act: goalsModal };
+}
+let hint = null, coachSig = "";
+function coach() {
+  if (!S || !S.started) return;
+  hint = nextHint();
+  const sig = [hint.t, hint.tile, hint.el, hint.step, hint.urgent].join("|");
+  if (sig !== coachSig) { coachSig = sig; setTxt("#goalTxt", hint.t); setTxt("#nextLbl", hint.step || (hint.urgent ? "NOW" : hint.goal ? "GOAL" : "NEXT"));
+    const nb = $("#nextBtn"); nb.classList.toggle("urgent", !!hint.urgent); nb.classList.toggle("tut", !!hint.step); nb.classList.remove("flash"); void nb.offsetWidth; nb.classList.add("flash"); }
+  const cm = $("#coachMark"), showTile = hint.tile !== undefined && hint.tile !== null && (hint.step || hint.urgent || (performance.now() < coachPin && hint.tile === coachPinTile));
+  if (showTile) { const p = tilePos(hint.tile); cm.style.left = ux(p.x - 1); cm.style.top = uy(p.y - 1); cm.classList.add("on"); } else cm.classList.remove("on");
+  document.querySelectorAll(".coach").forEach(e => { if (!hint.el || !e.matches(hint.el)) e.classList.remove("coach"); });
+  if (hint.el && (hint.step || hint.urgent || hint.el === "#sellBtn")) { const e = document.querySelector(hint.el); if (e) e.classList.add("coach"); }
+}
+function coachPoint() { const cm = $("#coachMark"); if (cm.classList.contains("on")) { const r = cm.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }
+  const e = hint && hint.el && document.querySelector(hint.el); if (e) { const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; } return null; }
+let coachPin = 0, coachPinTile = null;
+function hintTap() { if (!hint) return; buzz(8); coachPin = performance.now() + 5000; coachPinTile = hint.tile;
+  if (hint.act) return hint.act();
+  if (hint.tile !== undefined && hint.tile !== null) { const p = tilePos(hint.tile); pan.zGoal = Math.max(pan.z, 0.85); panTo(p.x + 8, p.y + 8); const cm = $("#coachMark"); cm.classList.add("on"); cm.classList.remove("ping"); void cm.offsetWidth; cm.classList.add("ping"); setTimeout(coach, 1800); return; }
+  if (hint.el) { const e = document.querySelector(hint.el); if (e) { e.classList.add("coach"); setTimeout(coach, 2200); } } }
+// Things that need attention glow softly (low feeder/waterer); eggs already sparkle.
+function needGlow() { tilesOf("feeder").concat(tilesOf("waterer")).forEach(i => { const t = $("#grid").children[i]; if (t) t.classList.toggle("need", S.grid[i].lvl < 30); });
+  const c = tileOf("coop"), ct = c !== undefined && $("#grid").children[c]; if (ct) ct.classList.toggle("need", isNight() && !S.locked && S.hens.length > 0); }
+
+/* Juice: coins fly to the HUD, eggs fly to the basket, confetti, haptics */
+let vibOn = true; try { vibOn = localStorage.getItem("coopcity-vib") !== "0"; } catch (e) {}
+let touched = false; ["pointerdown", "touchstart", "keydown"].forEach(ev => document.addEventListener(ev, () => { touched = true; }, { capture: true, passive: true }));
+function buzz(ms) { if (vibOn && touched && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} }
+const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+function flyTo(emoji, from, toSel, n, onEnd) {
+  const to = $(toSel); if (!to || !from || reduceMotion) { onEnd && onEnd(); return; } const r = to.getBoundingClientRect(), tx = r.x + 16, ty = r.y + r.height / 2, layer = $("#fly");
+  n = Math.min(6, Math.max(1, n)); let left = n;
+  for (let i = 0; i < n; i++) { const el = document.createElement("i"); el.textContent = emoji; layer.appendChild(el);
+    const sx = from[0] + (Math.random() - 0.5) * 26, sy = from[1] + (Math.random() - 0.5) * 18, mx = (sx + tx) / 2 + (Math.random() - 0.5) * 80, my = Math.min(sy, ty) - 40 - Math.random() * 50;
+    const an = el.animate([{ transform: `translate(${sx}px,${sy}px) scale(.6)`, opacity: 0 }, { transform: `translate(${sx}px,${sy - 14}px) scale(1.15)`, opacity: 1, offset: 0.15 },
+      { transform: `translate(${mx}px,${my}px) scale(1)`, opacity: 1, offset: 0.55 }, { transform: `translate(${tx}px,${ty}px) scale(.55)`, opacity: 0.9 }],
+      { duration: 620 + i * 70, easing: "cubic-bezier(.45,0,.4,1)", delay: i * 45 });
+    an.onfinish = () => { el.remove(); if (--left === 0) { const c = to; c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); onEnd && onEnd(); } }; } }
+function coinFly(n, from) { flyTo("🪙", from || centerOf("#grid-wrap"), "#coinStat", Math.ceil(n / 4)); }
+const centerOf = sel => { const e = $(sel); if (!e) return null; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; };
+function confetti() { if (reduceMotion) return; const layer = $("#fly"), W = innerWidth, cols = ["#ff5a5f", "#ffc531", "#4cc36a", "#4aa8ff", "#b46cff", "#ff9a3c"];
+  for (let i = 0; i < 46; i++) { const el = document.createElement("b"); el.style.background = cols[i % cols.length]; layer.appendChild(el);
+    const x0 = W / 2 + (Math.random() - 0.5) * 60, y0 = innerHeight * 0.32, x1 = x0 + (Math.random() - 0.5) * W * 1.1, y1 = y0 + 160 + Math.random() * innerHeight * 0.5, rot = (Math.random() - 0.5) * 1080;
+    el.animate([{ transform: `translate(${x0}px,${y0}px) rotate(0) scale(.4)`, opacity: 1 }, { transform: `translate(${(x0 + x1) / 2}px,${y0 - 120 - Math.random() * 120}px) rotate(${rot / 2}deg) scale(1)`, opacity: 1, offset: 0.35 },
+      { transform: `translate(${x1}px,${y1}px) rotate(${rot}deg) scale(.9)`, opacity: 0 }], { duration: 1300 + Math.random() * 700, easing: "cubic-bezier(.2,.6,.4,1)" }).onfinish = () => el.remove(); } }
+function sparkle(x, y) { const layer = $("#fly"); for (let i = 0; i < 7; i++) { const el = document.createElement("i"); el.textContent = i % 2 ? "✨" : "⭐"; el.style.fontSize = "14px"; layer.appendChild(el);
+  const a = i / 7 * Math.PI * 2, d = 26 + Math.random() * 14; el.animate([{ transform: `translate(${x}px,${y}px) scale(.3)`, opacity: 1 }, { transform: `translate(${x + Math.cos(a) * d}px,${y + Math.sin(a) * d}px) scale(1)`, opacity: 0 }], { duration: 520, easing: "ease-out" }).onfinish = () => el.remove(); } }
+
+/* Settings + How to play (⚙️) */
+window.settingsModal = () => {
+  const sw = (on, fn, ic, label, sub) => `<button class="setrow" onclick="${fn}"><span class="si">${ic}</span><span class="st"><b>${label}</b>${sub ? `<small>${sub}</small>` : ""}</span><span class="switch ${on ? "on" : ""}"><i></i></span></button>`;
+  modal(`<h2>⚙️ Settings</h2>
+   ${sw(musicOn, "toggleMusic()", "🎵", "Music", "Cheerful banjo tune by day, lullaby at night")}
+   ${sw(soundOn, "toggleSound()", "🔊", "Farm sounds", "Clucks, egg pops, coins, rooster crow")}
+   ${navigator.vibrate ? sw(vibOn, "toggleVib()", "📳", "Vibration", "A tiny buzz when you tap things") : ""}
+   <p class="hint">Hearing nothing on iPhone? Turn the volume up with the side buttons, then tap 🎵.</p>
+   <h3>Your farmer name</h3><div class="namerow"><input id="playerIn" maxlength="24" value="${esc(S && S.player || "")}" placeholder="Your name" enterkeyhint="done"><button class="buy" onclick="setPlayer()">Save</button></div>
+   <button class="act big" onclick="helpModal()">📖 How to play</button>
+   ${S && S.started ? `<button class="act big" onclick="replayTut()">🎓 Replay the tutorial</button><button class="act big danger" onclick="resetGame()">🗑️ Start a new farm…</button>` : ""}
+   <p class="hint">Progress saves automatically on this device. · ${BUILD}</p>
+   <button class="buy big" onclick="closeModal()">Done</button>`); };
+window.toggleVib = () => { vibOn = !vibOn; try { localStorage.setItem("coopcity-vib", vibOn ? "1" : "0"); } catch (e) {} buzz(20); settingsModal(); };
+window.replayTut = () => { S.tut = 0; S.said.tut0 = 0; S.said.tutHawkDone = 0; const f = S.grid[tileOf("feeder")]; if (f) f.lvl = Math.min(f.lvl, 25); const w = S.grid[tileOf("waterer")]; if (w) w.lvl = Math.min(w.lvl, 35);
+  closeModal(); recenter(); tutCheck(); renderAll(); };
+window.helpModal = () => modal(`<h2>📖 How to play</h2>
+  <div class="how"><span>🌾</span><p><b>Keep them fed and watered.</b> Tap the feeder or waterer to refill it. Feed comes from the 🛒 Shop → Supplies.</p></div>
+  <div class="how"><span>🥚</span><p><b>Collect eggs</b> by tapping them in the yard, then <b>💰 Sell</b> them for coins.</p></div>
+  <div class="how"><span>🔒</span><p><b>Lock the coop every night</b> (tap the coop or the 🔒 button), and let the hens out in the morning.</p></div>
+  <div class="how"><span>🦅</span><p><b>Tap predators</b> to scare them off. Roosters, dogs, and defenses in Shop → Guard help too.</p></div>
+  <div class="how"><span>🔨</span><p><b>Build:</b> pick an item in the bottom tray, then tap an empty spot of grass. Pick ✋ Hand to go back to tapping.</p></div>
+  <div class="how"><span>🗺️</span><p><b>Look around:</b> drag the yard, pinch to zoom, and tap 🏠 to come back. Tap a 🪧 sign to buy more land.</p></div>
+  <div class="how"><span>⭐</span><p><b>Goals:</b> the bar at the top always shows the next thing to do. Tap ⭐ for daily quests, badges, and your breed book.</p></div>
+  <div class="how"><span>😌</span><p><b>No stress:</b> time only passes while the game is open. Nothing bad happens while you're away.</p></div>
+  <button class="buy big" onclick="closeModal()">Got it!</button>`);
+
 
 /* ---------- HEN MOVEMENT ---------- */
 function tilePos(i) { return { x: (i % COLS) / VC * 100 + 1, y: Math.floor(i / COLS) / VR * 100 + 1 }; }
@@ -653,7 +793,7 @@ function layEggs() {
 }
 const mornBonus = () => 5 + Math.min(10, Math.floor(S.stats.safeNights / 2)) + (HOL && HOL.k === "thanks" ? 5 : 0);
 /* ---------- PROGRESSION: coins pop, XP + farm level, goals, daily quests, events, streaks ---------- */
-/* ---------- AUDIO: original procedural "Coop City Hoedown" + farm SFX (Web Audio, no files) ----------
+/* ---------- AUDIO: original procedural "Coup City Hoedown" + farm SFX (Web Audio, no files) ----------
    Key of G major, 116 BPM swung eighths. Form per loop: A A' B A C C (C = chorus with the "buk-buk-buk... BAWK" cluck hook).
    Variation: loop 2 swaps lead to banjo, loop 3 modulates up to A major, loop 4 uses a whistle lead.
    Night: the same hook as a slow music-box lullaby (72 BPM), crossfaded with the day/night cycle. */
@@ -741,13 +881,35 @@ function musicTick() {
   });
   musWant = want;
 }
-function audioStart() { if (!ac()) return; if (AC.state !== "running") AC.resume().catch(() => {});
+/* iPhone audio. Three things make Web Audio reliable on iOS Safari:
+   1) create/resume the AudioContext synchronously inside a real gesture (touchend/click) and play a 1-sample buffer;
+   2) the ring/silent switch mutes Web Audio unless the page's audio session is "playback". iOS 17+ exposes
+      navigator.audioSession.type for that; older iOS switches the session when an HTML <audio> element plays, so we
+      loop a short, inaudible WAV in an <audio> element while sound is on (the approach used by the unmute-ios-audio library);
+   3) iOS can leave the context "interrupted" (calls, Siri, app switch), so retry resume() on return and on the next tap. */
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let keepAlive = null;
+function silentWav() { const sr = 8000, n = sr / 2, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, i % 2 ? 1 : -1, true); // +/-1 LSB: inaudible, but not "digital silence"
+  return URL.createObjectURL(new Blob([b], { type: "audio/wav" })); }
+function sessionPlayback() {
+  try { if (navigator.audioSession && navigator.audioSession.type !== "playback") navigator.audioSession.type = "playback"; } catch (e) {}
+  if (!IOS || document.hidden || !(musicOn || soundOn)) return;
+  try { if (!keepAlive) { keepAlive = document.createElement("audio"); keepAlive.setAttribute("playsinline", ""); keepAlive.setAttribute("x-webkit-airplay", "deny"); keepAlive.loop = true; keepAlive.preload = "auto"; keepAlive.src = silentWav(); keepAlive.disableRemotePlayback = true; }
+    if (keepAlive.paused) { const pr = keepAlive.play(); if (pr && pr.catch) pr.catch(() => {}); } } catch (e) {} }
+function audioStart() { if (!ac()) return;
+  sessionPlayback();
+  if (AC.state !== "running") { const pr = AC.resume(); if (pr && pr.catch) pr.catch(() => {}); }
   try { const b = AC.createBufferSource(); b.buffer = AC.createBuffer(1, 1, 22050); b.connect(AC.destination); b.start(0); } catch (e) {}
+  if (!AC._watch) { AC._watch = 1; AC.onstatechange = () => { if (AC.state !== "running" && !document.hidden && (musicOn || soundOn)) setTimeout(() => { if (AC.state !== "running" && !document.hidden) AC.resume().catch(() => {}); }, 300); audioBtns(); }; }
   if (!musTimer && !document.hidden) musTimer = setInterval(musicTick, 100); }
-// Mobile browsers only allow audio after a user gesture: unlock on the first tap anywhere (Start/Continue included)
-["pointerup", "touchend", "click", "keydown"].forEach(ev => document.addEventListener(ev, function unlock() { audioStart(); if (AC && AC.state === "running") ["pointerup", "touchend", "click", "keydown"].forEach(x => document.removeEventListener(x, unlock, true)); }, true));
+// Unlock on every real gesture until audio is running (also recovers from iOS "interrupted"). Cheap when already running.
+["touchend", "pointerup", "click", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (!AC || AC.state !== "running" || (IOS && keepAlive && keepAlive.paused && (musicOn || soundOn))) audioStart(); }, true));
 document.addEventListener("visibilitychange", () => { if (!AC) return;
-  if (document.hidden) { clearInterval(musTimer); musTimer = 0; AC.suspend().catch(() => {}); } else { AC.resume().catch(() => {}); if (!musTimer) musTimer = setInterval(musicTick, 100); } });
+  if (document.hidden) { clearInterval(musTimer); musTimer = 0; AC.suspend().catch(() => {}); if (keepAlive) keepAlive.pause(); }
+  else { audioStart(); } });
+window.addEventListener("pageshow", () => { if (AC && !document.hidden) audioStart(); });
 // Farm SFX (off by default; 🔊 toggle)
 function sfx(kind) { if (!soundOn || !ac() || AC.state !== "running") return; const t = AC.currentTime + 0.01, B = sfxBus;
   try {
@@ -761,17 +923,24 @@ function sfx(kind) { if (!soundOn || !ac() || AC.state !== "running") return; co
     else { const f = { lvl: [72, 76, 79, 84], warn: [62, 58], good: [76, 81] }[kind] || [76]; f.forEach((m, i) => pluck(B, m, t + i * 0.08, 0.25, 0.18, "triangle", 4000)); }
   } catch (e) {} }
 const beep = sfx;
-function audioBtns() { const m = $("#musicBtn"), s = $("#sfxBtn"); if (m) { m.classList.toggle("off", !musicOn); m.setAttribute("aria-pressed", musicOn); } if (s) { s.classList.toggle("off", !soundOn); s.setAttribute("aria-pressed", soundOn); } }
-window.toggleMusic = () => { musicOn = !musicOn; try { localStorage.setItem("coopcity-music", musicOn ? "1" : "0"); } catch (e) {} audioStart(); toast(musicOn ? "🎵 Music on" : "🎵 Music off"); audioBtns(); if (!$("#modal").classList.contains("hidden") && $("#modal").innerText.includes("farmer name")) goalsModal(); };
-window.toggleSound = () => { soundOn = !soundOn; try { localStorage.setItem("coopcity-sound", soundOn ? "1" : "0"); } catch (e) {} audioStart(); sfx("cluck"); toast(soundOn ? "🔊 Farm sounds on" : "🔇 Farm sounds off"); audioBtns(); if (!$("#modal").classList.contains("hidden") && $("#modal").innerText.includes("farmer name")) goalsModal(); };
+function audioBtns() { const m = $("#musicBtn"), x = $("#sfxBtn");
+  if (m) { m.classList.toggle("off", !musicOn); m.setAttribute("aria-pressed", musicOn); m.setAttribute("aria-label", musicOn ? "Music on. Tap to mute" : "Music off. Tap to play"); }
+  if (x) { x.textContent = soundOn ? "🔊" : "🔇"; x.classList.toggle("off", !soundOn); x.setAttribute("aria-pressed", soundOn); x.setAttribute("aria-label", soundOn ? "Farm sounds on" : "Farm sounds off"); }
+  const tp = $("#titleMusic"); if (tp) { tp.innerHTML = `🎵 Music: <b>${musicOn ? "On" : "Off"}</b>`; tp.classList.toggle("off", !musicOn); }
+  if (keepAlive && !(musicOn || soundOn)) keepAlive.pause(); }
+const reopenSettings = () => { const c = $("#modalCard"); if (!$("#modal").classList.contains("hidden") && c.querySelector(".setrow")) settingsModal(); };
+window.toggleMusic = () => { musicOn = !musicOn; try { localStorage.setItem("coopcity-music", musicOn ? "1" : "0"); } catch (e) {} audioStart(); buzz(10); toast(musicOn ? "🎵 Music on" : "🎵 Music off", 1); audioBtns(); reopenSettings(); };
+window.toggleSound = () => { soundOn = !soundOn; try { localStorage.setItem("coopcity-sound", soundOn ? "1" : "0"); } catch (e) {} audioStart(); buzz(10); sfx("cluck"); toast(soundOn ? "🔊 Farm sounds on" : "🔇 Farm sounds off", 1); audioBtns(); reopenSettings(); };
+function musicTip() { let seen = false; try { seen = localStorage.getItem("coopcity-mtip") === "1"; localStorage.setItem("coopcity-mtip", "1"); } catch (e) {}
+  if (seen || !musicOn) return; setTimeout(() => { toast("🎵 Music on. Tap the 🎵 button to mute.", 1); const d = $("#dock"); d.classList.add("hey"); setTimeout(() => d.classList.remove("hey"), 4200); }, 900); }
 function coinPop(n) { const el = $("#coinPop"); if (!el) return; el.textContent = (n > 0 ? "+" : "") + n + "🪙"; el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
   const st = $("#coinStat"); st.classList.remove("bump"); void st.offsetWidth; st.classList.add("bump"); }
-function gain(n, why) { if (!n) return; S.coins += n; coinPop(n); beep("coin"); if (why) toast(why); }
+function gain(n, why, from) { if (!n) return; S.coins += n; coinPop(n); beep("coin"); buzz(12); coinFly(n, from || coachPoint() || centerOf("#toast")); if (why) toast(why); }
 const xpNeed = l => 15 + 10 * (l - 1);
 const UNLOCK = { wyandotte: 2, lavender: 2, easter: 3, legbar: 3, marans: 4, ayam: 5, "roo:ayam": 4, goose: 2, efence: 3, dog: 4 };
 const lockedLv = k => (UNLOCK[k] || 1) > S.lvl && !(S.premium && S.premium.pack && CH[k]);
 function xp(n) { S.xp += n;
-  while (S.xp >= xpNeed(S.lvl)) { S.xp -= xpNeed(S.lvl); S.lvl++; const r = 10 + 5 * S.lvl; S.coins += r; coinPop(r); beep("lvl");
+  while (S.xp >= xpNeed(S.lvl)) { S.xp -= xpNeed(S.lvl); S.lvl++; const r = 10 + 5 * S.lvl; S.coins += r; coinPop(r); beep("lvl"); confetti(); buzz(40);
     const un = Object.entries(UNLOCK).filter(([k, l]) => l === S.lvl).map(([k]) => k.startsWith("roo:") ? ROOS[k.slice(4)].name : CH[k] ? CH[k].name : DEF.find(d => d[0] === k)[2]);
     for (let i = 0; i < 8; i++) particle(rnd(["⭐", "✨", "🎉"]), 30 + Math.random() * 40, 40 + Math.random() * 20, 2);
     toast(`⭐ Farm level ${S.lvl}! +${r}🪙${un.length ? " · Unlocked: " + un.join(", ") : ""}`); } }
@@ -908,33 +1077,35 @@ function coverSpot() { const t = [...tilesOf("tree"), ...tilesOf("run"), ...tile
 function runForCover(ms, only) { const now = performance.now(); (only || S.hens).forEach(h => { const p = coverSpot(); if (!p) return; h.flip = p.x < h.x; h.x = p.x; h.y = p.y; h.busy = true; h.run = true; h.next = now + ms;
   setTimeout(() => { h.busy = false; h.run = false; }, ms); }); if (S.rooster) { S.rooster.run = true; setTimeout(() => S.rooster && (S.rooster.run = false), 2000); } renderHens(); }
 const pickW = o => { const e = Object.entries(o), tot = e.reduce((a, [, v]) => a + (v.w || v[2]), 0); let r = Math.random() * tot; for (const [k, v] of e) { r -= v.w || v[2]; if (r <= 0) return k; } return e[0][0]; };
-function dayThreat(kind) {
+function dayThreat(kind, tut) {
   if (threat || !S.hens.length || !hensOut()) return;
   const T = kind === "fox" ? FOX_DUSK : DAY_T[kind], target = rnd(S.hens), fromL = Math.random() < 0.5, sx = target.x + (fromL ? -62 : 62);
   const ty = T.sky ? Math.max(0, target.y - 16) : target.y;
   const a = actor(`<span>${T.e}</span>`, (T.sky ? "sky" : "ground") + (T.big ? " big" : ""), sx, T.sky ? -12 : ty, T.sky ? 45 : 30, { sky: T.sky });
-  a.tx = target.x - 2; a.ty = ty;
+  a.tx = target.x - 2; a.ty = ty; panTo(target.x + 6, target.y + 4); // bring the action into view
   const sh = T.sky ? actor("", "shadow", sx, target.y + 7, 45, { noflip: 1 }) : null; if (sh) { sh.tx = target.x; sh.ty = target.y + 8; }
-  threat = { kind, T, a, sh, target, fromL, sx, done: false };
+  threat = { kind, T, a, sh, target, fromL, sx, done: false, tut: !!tut };
   a.el.classList.add("tappable"); a.el._tap = () => { if (threat && !threat.done) { threat.tapped = true; resolveDay(); } };
   a.el.addEventListener("pointerdown", e => { e.stopPropagation(); a.el._tap(); });
-  toast(`⚠️ ${T.name}! Tap it to scare it off!`); beep("warn");
+  toast(`⚠️ ${T.name}! Tap it to scare it off!`, 1); beep("warn");
   const g = roo();
   runForCover(4200, S.hens.filter(h => h.pers === "shy"));
   if (g && Math.random() < g.alarm + (T.sky ? 0.1 : 0)) setTimeout(() => { if (threat && !threat.done) { threat.alarm = true; particle("❗", S.rooster.x + 6, S.rooster.y - 2, 0); toast(`🐓 ${S.rooster.name} sounds the alarm! Hens run for cover!`); runForCover(4500); } }, 800);
   else if (S.def.goose && Math.random() < 0.5) setTimeout(() => { if (threat && !threat.done) { threat.alarm = true; toast("🪿 HONK HONK! The goose sounds the alarm!"); runForCover(4500); } }, 800);
   sayOnce("t_" + kind, `${T.line} <i>Tip: ${T.tip}</i>`, 1);
   if (!S.said.taptip) { S.said.taptip = 1; say(`${T.line} Quick, tap it! <i>Tip: ${T.tip}</i>`, 1); }
-  threat.timer = setTimeout(resolveDay, 4300);
+  threat.timer = setTimeout(resolveDay, tut ? 7000 : 4300); renderAll();
 }
 function resolveDay() {
   const t = threat; if (!t || t.done) return; t.done = true; clearTimeout(t.timer);
   const { T, target, kind } = t, nm = T.name.toLowerCase().replace("neighbor's ", ""), g = roo(); let msg;
-  if (t.tapped) { S.stats.scared++; bump("scare"); xp(5); gain(3); msg = `You flapped your arms and yelled. The ${nm} left! +3🪙`; beep("good"); }
+  if (t.tut) S.said.tutHawkDone = 1;
+  if (t.tapped) { buzz(25); const tp = t.a.el.getBoundingClientRect(); sparkle(tp.x + tp.width / 2, tp.y + tp.height / 2); S.stats.scared++; bump("scare"); xp(5); gain(3); msg = `You flapped your arms and yelled. The ${nm} left! +3🪙`; beep("good"); }
   else if (S.def.dog && Math.random() < (T.sky ? 0.35 : 0.9)) msg = `Your guard dog barked the ${nm} away! 🐶`;
   else if (S.def.goose && !T.sky && Math.random() < 0.5) msg = `The goose HONKED and charged. The ${nm} left. 🪿`;
   else if (g && Math.random() < g.fight * (T.big ? 0.6 : 1) * (kind === "dog" ? 0.6 : 1)) { msg = `${S.rooster.name} puffed up and charged! The ${nm} backed off. 💪`; S.stats.rooWins++; xp(3); particle("💪", S.rooster.x + 6, S.rooster.y - 2, 0);
     sayOnce("roowin", `${S.rooster.name} just body-slammed a ${nm}. I take back everything I said about 5am. <i>Tip: roosters watch for danger, sound an alarm call, and will often fight to protect their hens.</i>`, 1); }
+  else if (t.tut) msg = `The ${nm} flew off. Next time, tap it fast!`;
   else { let p = T.hit; if (t.alarm) p *= 0.35; if (target.pers === "shy") p *= 0.5;
     if (T.sky) { if (has("run")) p *= 0.5; if (has("tree")) p *= 0.7; } else { p *= 1 - 0.5 * Math.min(1, tilesOf("fence").length / 12); if (S.def.efence) p *= 0.2; }
     if (S.hens.includes(target) && Math.random() < p) { hurt(target, Math.min(10, Math.round(T.dmg / 3))); for (let i = 0; i < 5; i++) particle("🪶", target.x + 7, target.y + 4, 1); msg = `The ${nm} swiped at ${target.name}! She lost a few feathers and is hiding, but she'll be fine.`; S.nightHurt = true; beep("warn"); }
@@ -979,9 +1150,10 @@ function nightThreat(kind) {
 function predator(emoji, i, msg) { const p = tilePos(i ?? 0); const a = actor(`<span>${emoji}</span>`, "ground", -16, p.y, 30); a.tx = p.x; a.ty = p.y;
   a.onArrive = () => setTimeout(() => { a.tx = 108; a.onArrive = () => dropActor(a); }, 600); toast(msg); }
 function threatHour() {
-  const h = S.hour;
-  if (h === 11 && S.day === 1 && !S.said.tuthawk && hensOut()) { S.said.tuthawk = 1; return dayThreat("hawk"); }
-  if (h >= 9 && h <= 16 && (S.day > 1 || h >= 12) && Math.random() < 0.12) return dayThreat(pickW(DAY_T));
+  const h = S.hour; if (S.tut < TUT.length) return; // no predators until the player has learned the basics
+  if (!$("#modal").classList.contains("hidden") && h < 20) return; // never ambush someone reading a menu
+  if (h === 11 && S.day === 1 && !S.said.tuthawk && !S.said.tutHawkDone && hensOut()) { S.said.tuthawk = 1; return dayThreat("hawk"); }
+  if (h >= 9 && h <= 16 && S.day > 1 && Math.random() < 0.12) return dayThreat(pickW(DAY_T));
   if ((h === 18 || h === 19) && Math.random() < 0.15) return dayThreat("fox");
   if ((h === 22 || h === 2) && S.hens.length && Math.random() < 0.55) { let k = pickW(NIGHT_T); if (k === "snake" && season()[1] === "Winter") k = "rat"; nightThreat(k); }
 }
@@ -999,7 +1171,7 @@ function migrate(s) {
   s.login = s.login || {}; s.login.days = s.login.days || (s.login.last ? 1 : 0); (s.hens || []).forEach(h => { h.health = Math.max(40, h.health); });
   s.hens.forEach(h => { h.busy = false; h.run = false; h.next = 0; h.dust = false; if (!h.pers) h.pers = rnd(Object.keys(PERS)); s.seen[h.breed] = 1; });
   if (s.rooster) { s.rooster.run = false; s.rooster.next = 0; }
-  (s.bugs || []).forEach(b => b.claimed = 0); if (!s.speed) s.speed = 1; return s;
+  (s.bugs || []).forEach(b => b.claimed = 0); if (!s.speed) s.speed = 1; if (s.tut == null) s.tut = 99; return s;
 }
 function loadSave() { try { const j = localStorage.getItem(SAVE_KEY); return j ? JSON.parse(j) : null; } catch (e) { return null; } }
 
@@ -1033,7 +1205,7 @@ async function shareOut(title, text, url) {
 }
 function farmSnap() { return { v: 1, n: S.player || "A city farmer", d: S.day, l: S.lvl, c: S.coopLvl, a: S.land.length, e: S.lifetime, g: Object.keys(S.goals).length,
   h: S.hens.slice(0, 12).map(h => [h.breed, h.name.slice(0, 32), h.pers]), r: S.rooster ? [S.rooster.breed, S.rooster.name.slice(0, 32)] : 0, k: S.collection }; }
-window.shareFarm = () => shareOut("My Coop City farm", `Come visit my chicken farm in Coop City! 🐔`, `${baseURL()}#visit=${mkCode("CCV", farmSnap())}`);
+window.shareFarm = () => shareOut("My Coup City farm", `Come visit my chicken farm in Coup City! 🐔`, `${baseURL()}#visit=${mkCode("CCV", farmSnap())}`);
 function visitModal(f) {
   modal(`<h2>🏡 ${esc(f.n)}'s farm</h2><p>Day ${+f.d || 1} · ⭐ Level ${+f.l || 1} · ${COOPS[f.c] ? COOPS[f.c].name : "Coop"} · ${+f.a || 1} plot${f.a > 1 ? "s" : ""} of land</p>
    <div class="visit">${(f.h || []).filter(h => CH[h[0]]).map(h => `<div>${henSVG(h[0])}<small>${esc(h[1])}<br>${PERS[h[2]] ? PERS[h[2]][0] : ""} ${CH[h[0]].name}</small></div>`).join("")}${f.r && ROOS[f.r[0]] ? `<div>${henSVG("roo:" + f.r[0])}<small>${esc(f.r[1])}<br>🐓 rooster</small></div>` : ""}</div>
@@ -1054,7 +1226,7 @@ function giftReady(code, what) { const url = `${baseURL()}#gift=${code}`;
   modal(`<h2>🎁 Gift ready!</h2><p>Send ${esc(what)} to a friend. They open the link (or paste the code in Goals → Trade).</p><textarea class="code" readonly onclick="this.select()">${code}</textarea>
    <button class="buy big" onclick='shareGift(${JSON.stringify(url)})'>📤 Share gift link</button><button class="act big" onclick="closeModal()">Done</button>`);
   say("I'm regifting a chicken. Is that allowed? It feels allowed. <i>Tip: real flocks should quarantine new birds for about 30 days before mixing them in.</i>", 1); }
-window.shareGift = url => shareOut("A Coop City gift", "I sent you a gift for your Coop City farm! 🎁🐔", url);
+window.shareGift = url => shareOut("A Coup City gift", "I sent you a gift for your Coup City farm! 🎁🐔", url);
 function redeem(str) { const r = readCode(str); if (!r) return toast("That code doesn't look right.");
   if (r.kind === "CCV") return visitModal(r.o);
   const o = r.o, used = redeemed(); if (used.includes(o.id)) return toast("This gift was already opened on this device.");
@@ -1072,13 +1244,13 @@ function renderGoalbar() {
   const g = nextGoal(), dqLeft = S.dq.filter(q => !q.done).length, need = xpNeed(S.lvl);
   const sig = [S.lvl, Math.round(S.xp / need * 100), g && g[0], dqLeft, S.event, S.stats.safeNights, S.player].join("|"); if (sig === gbSig) return; gbSig = sig;
   $("#lvN").textContent = S.lvl; $("#xpFill").style.transform = `scaleX(${Math.min(1, S.xp / need).toFixed(3)})`;
-  $("#goalTxt").textContent = g ? `${g[1]} ${g[2]} · +${g[4]}🪙` : "🏆 All badges earned!";
   $("#dqN").textContent = dqLeft ? `🎯${dqLeft}` : "🎯✓";
   $("#evChip").textContent = (S.event ? EVENTS[S.event][0] : "") + (HOL ? HOL.hat : "") + "";
 }
 let gTab = "today";
-function goalsModal() {
-  const tabs = [["today", "🎯 Today"], ["badges", "🏅 Badges"], ["book", "📖 Book"], ["trade", "🎁 Trade"], ["me", "⚙️ Me"]].map(([k, l]) => `<button class="${gTab === k ? "on" : ""}" onclick="gTabSet('${k}')">${l}</button>`).join("");
+const gTabs = ["today", "badges", "book", "trade"];
+function goalsModal() { if (!gTabs.includes(gTab)) gTab = "today";
+  const tabs = [["today", "🎯 Today"], ["badges", "🏅 Badges"], ["book", "📖 Book"], ["trade", "🎁 Trade"]].map(([k, l]) => `<button class="${gTab === k ? "on" : ""}" onclick="gTabSet('${k}')">${l}</button>`).join("");
   let body = "";
   if (gTab === "today") body = `<p>⭐ Farm level <b>${S.lvl}</b> · ${S.xp}/${xpNeed(S.lvl)} XP · next level +${10 + 5 * (S.lvl + 1)}🪙</p>`
     + S.dq.map(q => `<div class="row"><span style="font-size:24px">${DQ[q.k][0]}</span><div class="t"><b>${DQ[q.k][1](q.n)}</b><br>${Math.min(q.n, S.today[q.k] || 0)}/${q.n}</div><button class="buy" disabled>${q.done ? "✓" : "+" + q.r + "🪙"}</button></div>`).join("")
@@ -1103,12 +1275,17 @@ function goalsModal() {
   modal(`<h2>🐔 ${esc(S.player ? S.player + "'s farm" : "My farm")}</h2><div class="tabs">${tabs}</div>${body}<button class="act big" onclick="closeModal()">Close</button>`);
 }
 window.goalsModal = goalsModal; window.gTabSet = k => { gTab = k; goalsModal(); };
-window.setPlayer = () => { S.player = $("#playerIn").value.trim().slice(0, 24); toast(S.player ? `Hi, ${S.player}!` : "Name cleared"); gbSig = ""; renderAll(); goalsModal(); };
-window.resetGame = () => modal(`<h2>Start over?</h2><p>This erases your farm on this device.</p><button class="buy big cull" onclick="doReset()">Yes, start fresh</button><button class="act big" onclick="goalsModal()">Cancel</button>`);
+window.setPlayer = () => { S.player = $("#playerIn").value.trim().slice(0, 24); toast(S.player ? `Hi, ${S.player}!` : "Name cleared", 1); gbSig = ""; renderAll(); settingsModal(); };
+window.resetGame = () => modal(`<h2>Start over?</h2><p>This erases your farm on this device.</p><button class="buy big cull" onclick="doReset()">Yes, erase and start fresh</button><button class="act big" onclick="settingsModal()">Cancel</button>`);
 window.doReset = () => { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} location.hash = ""; location.reload(); };
 
 /* ---------- INPUT ---------- */
-$("#tools").addEventListener("click", e => { const b = e.target.closest(".tool"); if (!b) return; tool = b.dataset.t; renderTools(); if (ITEMS[tool].tip) say(`${ITEMS[tool].name}: ${ITEMS[tool].tip}`, 1); });
+function setTool(k) { tool = k; renderTools(); $("#grid").classList.toggle("placing", k !== "hand" && k !== "bulldoze"); $("#grid").classList.toggle("removing", k === "bulldoze"); }
+$("#tools").addEventListener("click", e => { const b = e.target.closest(".tool"); if (!b) return; buzz(8); const k = b.dataset.t; setTool(k === tool && k !== "hand" ? "hand" : k);
+  if (tool === "hand") return toast("✋ Hand: tap things in the yard", 1);
+  if (tool === "bulldoze") { toast("🧹 Tap something you built to remove it", 1); return; }
+  const it = ITEMS[tool]; toast(S.coins < it.cost ? `${it.name} costs ${it.cost}🪙. Sell some eggs first!` : `Tap an empty grass spot to build a ${it.name.toLowerCase()} (${it.cost}🪙)`, 1); if (it.tip) say(`${it.name}: ${it.tip}`, 1); });
+window.tileTap = tileTap;
 function tileTap(target) {
   const eg = target.closest("[data-egg]");
   if (eg) return collect(+eg.dataset.egg);
@@ -1130,18 +1307,23 @@ function tileTap(target) {
   if (tool === "bulldoze") { if (g && g.type === "incubator" && (S.incub.length || S.chicks.length)) return toast("Empty the incubator first");
     if (g && g.fixed) return toast("That's part of the land. It stays!");
     if (g && g.type === "coop") { S.grid.forEach((x, j) => { if (x && x.type === "annex") S.grid[j] = null; }); if (S.coopLvl) { S.coopLvl = 0; toast("Coop removed. Upgrades lost."); } }
-    if (g) { S.coins += Math.floor(ITEMS[g.type].cost / 2); S.grid[i] = null; floatAt(i, "removed"); renderAll(); } return; }
+    if (!g) return toast("Nothing to remove there");
+    if (["coop", "feeder", "waterer"].includes(g.type) && tilesOf(g.type).length === 1 && !window._rmOK) return modal(`<h2>Remove the ${ITEMS[g.type].name.toLowerCase()}?</h2><p>Your hens need ${g.type === "coop" ? "a coop to sleep in" : g.type === "feeder" ? "a feeder" : "water"}. You'll get ${Math.floor(ITEMS[g.type].cost / 2)}🪙 back.</p><button class="buy big cull" onclick="window._rmOK=1;closeModal();tileTap(document.querySelector('.tile[data-i=\'${i}\']'));window._rmOK=0">Remove it</button><button class="act big" onclick="closeModal()">Keep it</button>`);
+    S.coins += Math.floor(ITEMS[g.type].cost / 2); S.grid[i] = null; floatAt(i, "removed"); setTool("hand"); renderAll(); return; }
   if (g) return toast("Something's already there");
   const it = ITEMS[tool];
   if (it.max && tilesOf(tool).length >= it.max) return toast(`One ${it.name.toLowerCase()} is plenty for now`);
   if (S.coins < it.cost) return toast("Not enough coins. Sell some eggs!");
-  S.coins -= it.cost; S.grid[i] = { type: tool, lvl: 100 }; floatAt(i, `-${it.cost}🪙`); if (tool !== "run") S.bugs = S.bugs.filter(b => b.tile !== i);
-  if (!S.said["built_" + tool]) { S.said["built_" + tool] = 1; say(`${it.joke} <i>${it.tip}</i>`, 1); }
+  S.coins -= it.cost; S.grid[i] = { type: tool, lvl: 100 }; floatAt(i, `-${it.cost}🪙`); if (tool !== "run") S.bugs = S.bugs.filter(b => b.tile !== i); buzz(20); sfx("lvl");
+  setTimeout(() => { const tt = $("#grid").children[i]; if (tt) { tt.classList.add("built"); setTimeout(() => tt.classList.remove("built"), 700); } const p = tilePos(i); for (let k = 0; k < 6; k++) particle(k % 2 ? "✨" : "💨", p.x + Math.random() * 8, p.y + 2 + Math.random() * 6, 2); }, 0);
+  const built = tool; if (!["fence", "run"].includes(built)) setTool("hand");
+  if (!S.said["built_" + built]) { S.said["built_" + built] = 1; say(`${it.joke} <i>${it.tip}</i>`, 1); }
   renderAll(); wander();
 }
 function collect(k) {
   const e = S.ground.splice(k, 1)[0]; S.basket.push(e); S.lifetime++; bump("eggs"); xp(2);
-  S.collection[e.color] = (S.collection[e.color] || 0) + 1; floatAt(e.tile, "+1 🥚"); sfx("egg");
+  S.collection[e.color] = (S.collection[e.color] || 0) + 1; floatAt(e.tile, "+1 🥚"); sfx("egg"); buzz(15);
+  const et = $("#grid").children[e.tile]; if (et) { const r = et.getBoundingClientRect(), pt = [r.x + r.width / 2, r.y + r.height / 2]; sparkle(pt[0], pt[1]); flyTo("🥚", pt, "#eggStat", 1); }
   renderAll();
   if (S.collection[e.color] === 1 && e.color !== "white" && e.color !== "brown") setTimeout(() => shareCard(e), 400);
 }
@@ -1166,13 +1348,13 @@ $("#sellBtn").onclick = () => {
   const c = counts(S.basket); const total = S.basket.reduce((a, e) => a + eggPrice(e), 0);
   modal(`<h2>💰 Farmers market</h2><p>Brayden set up a folding table outside his apartment. Fancy colors sell for more.</p>${S.event === "market" || S.event === "contest" ? `<p class="demo">${EVENTS[S.event].join(" ")}</p>` : ""}
    ${Object.keys(c).map(k => `<div class="row">${eggSVG(k)}<div class="t"><b>${EGG_COLORS[k].label}</b> × ${c[k]}<br>${eggPrice({ color: k })}🪙 each</div></div>`).join("") || "<p><i>Your basket is empty. Tap eggs in the yard to collect them.</i></p>"}
-   <button class="buy big" ${total ? "" : "disabled"} onclick="sellAll()">Sell all for ${total}🪙</button>
+   <button class="buy big" id="sellAllBtn" ${total ? "" : "disabled"} onclick="sellAll()">Sell all for ${total}🪙</button>
    <button class="buy big" onclick="shareCard()">📸 Share my egg rainbow</button>
    <button class="act big" onclick="closeModal()">Close</button>`);
 };
 window.sellAll = () => { const t = S.basket.reduce((a, e) => a + eggPrice(e), 0), n = S.basket.length; if (!n) return;
   const fancy = S.event === "contest" && !S.contestWon && S.basket.some(e => !["white", "brown"].includes(e.color));
-  S.stats.sold += n; bump("sell", n); xp(Math.ceil(n / 2)); S.basket = []; closeModal(); gain(t, `Sold ${n} egg${n > 1 ? "s" : ""}! +${t}🪙`);
+  S.stats.sold += n; bump("sell", n); xp(Math.ceil(n / 2)); S.basket = []; closeModal(); gain(t, `Sold ${n} egg${n > 1 ? "s" : ""}! +${t}🪙`, centerOf("#sellBtn"));
   if (fancy) { S.contestWon = true; setTimeout(() => { gain(15, "🏆 Your egg won the contest! +15🪙"); renderHUD(); }, 1400); }
   renderAll(); };
 let shopTab = "hens";
@@ -1241,12 +1423,12 @@ window.nextQ = () => { S.quizI++; shop(); };
 $("#shopBtn").onclick = shop;
 window.shareCard = e => {
   const c = Object.keys(S.collection);
-  const headline = e ? `My hen ${e.hen} laid a ${EGG_COLORS[e.color].label.toLowerCase()} egg!` : `My Coop City egg rainbow`;
+  const headline = e ? `My hen ${e.hen} laid a ${EGG_COLORS[e.color].label.toLowerCase()} egg!` : `My Coup City egg rainbow`;
   const henB = e ? e.breed : (S.hens[0] || { breed: "leghorn" }).breed;
   const fun = e && e.breed === "ayam" ? "Plot twist: the all-black hen lays CREAM eggs. 🖤🥚" : e ? CH[e.breed].fact : `${S.lifetime} eggs collected so far.`;
   modal(`<div class="share"><div style="width:110px;margin:0 auto">${henSVG(henB)}</div><h3>${headline}</h3>
-   <div class="eggrow">${(e ? [e.color] : c).map(k => eggSVG(k, k === "chocolate")).join("")}</div><p>${fun}</p><p style="font-size:12px">🐔 Coop City · Day ${S.day}</p></div>
-   <button class="buy big" onclick="navigator.clipboard&&navigator.clipboard.writeText('${headline.replace(/'/g,"")} #CoopCity');toast('Copied! (demo)')">📤 Share</button>
+   <div class="eggrow">${(e ? [e.color] : c).map(k => eggSVG(k, k === "chocolate")).join("")}</div><p>${fun}</p><p style="font-size:12px">🐔 Coup City · Day ${S.day}</p></div>
+   <button class="buy big" onclick="navigator.clipboard&&navigator.clipboard.writeText('${headline.replace(/'/g,"")} #CoupCity');toast('Copied! (demo)')">📤 Share</button>
    <button class="act big" onclick="closeModal()">Back to the yard</button>`);
 };
 window.toast = toast;
@@ -1322,7 +1504,7 @@ function incubatorModal() {
   modal(`<h2>🥚 Incubator</h2><p>${S.incub.length}/${INCUBATOR_CAP} eggs · hatches in ${INCUBATE_DAYS} game days</p><div class="slots">${slots}</div>
    ${S.rooster ? "" : `<p class="demo">No rooster, no chicks. Buy a rooster in the 🛒 Shop so new eggs are fertile.</p>`}
    <button class="buy big" ${fert && room ? "" : "disabled"} onclick="loadIncubator()">Add fertile eggs from basket (${fert})</button>
-   <p style="font-size:12px"><i>Tip:</i> real chicken eggs take about 21 days to hatch, kept at about 99.5°F with the right humidity and turned several times a day. Coop City speeds that up to ${INCUBATE_DAYS} days.</p>
+   <p style="font-size:12px"><i>Tip:</i> real chicken eggs take about 21 days to hatch, kept at about 99.5°F with the right humidity and turned several times a day. Coup City speeds that up to ${INCUBATE_DAYS} days.</p>
    <h3 style="margin:10px 0 0">🐣 Nursery</h3>${nursery}
    <p style="font-size:12px">Chicks join the flock after ${CHICK_GROW_DAYS} days if the coop has room (${S.hens.length}/${capacity()}).</p>
    <button class="act big" onclick="closeModal()">Close</button>`);
@@ -1341,35 +1523,38 @@ window.sellChick = id => { const c = S.chicks.find(x => x.id == id); if (!c) ret
 /* ---------- START ---------- */
 function title() {
   const sv = loadSave();
-  modal(`<div class="title"><h1>Coop City</h1><div class="sub">Chickens for people who can't have chickens (yet).</div><div class="ver">build 8 · tap fix + music</div>
-   <div style="width:80px;margin:6px auto">${guySVG}</div>
-   ${sv && sv.hens ? `<button class="buy big" onclick="continueGame()">▶️ Continue${sv.player ? " as " + esc(sv.player) : ""} · Day ${sv.day}</button><p style="font-size:12px;margin:4px 0">or start a new farm:</p>` : ""}
-   <p>"Hi, I'm Brayden, your neighbor. I just got chickens too and I have NO idea what I'm doing. What's your name?"</p>
-   <div class="namerow"><input id="playerIn" maxlength="24" placeholder="Your farmer name"></div>
-   <p><b>Pick your first hen:</b></p>
-   ${["leghorn","barred"].map(k=>`<div class="row">${henSVG(k)}<div class="t"><b>${CH[k].name}</b><br>${CH[k].blurb}</div><button class="buy" onclick="start('${k}')">Adopt</button></div>`).join("")}
-   <p style="font-size:12px;opacity:.7">🎯 First goals: collect an egg, sell it, and protect your hens. ${realSeason()[0]} ${realSeason()[1]} now${HOL ? " · " + HOL.name : ""}.</p></div>`);
+  modal(`<div class="title"><div class="logo"><div class="rays"></div><div class="cloud c1"></div><div class="cloud c2"></div><div class="hill"></div><div class="peek">${henSVG("leghorn")}</div><div class="peek p2">${henSVG("barred")}</div>
+   <h1 aria-label="Coup City">${[..."Coup City"].map((c, i) => `<span style="--i:${i}"${i === 0 ? ' class="king"' : ""}>${i === 0 ? '<em class="crown" aria-hidden="true">👑</em>' : ""}${c === " " ? "&nbsp;" : c}</span>`).join("")}</h1></div>
+   <div class="sub">Chickens for people who can't have chickens (yet).</div>
+   <button class="pill" id="titleMusic" onclick="toggleMusic()"></button>
+   ${sv && sv.hens ? `<button class="buy big cta" onclick="continueGame()">▶️ Continue${sv.player ? " as " + esc(sv.player) : ""} <small>Day ${sv.day}</small></button><div class="or"><span>or start a new farm</span></div>` : ""}
+   <div class="intro"><div class="guyMini">${guySVG}</div><p class="say">Hi, I'm <b>Brayden</b>, your neighbor. I just got chickens too and I have NO idea what I'm doing. What's your name?</p></div>
+   <div class="namerow"><input id="playerIn" maxlength="24" placeholder="Your farmer name (optional)" enterkeyhint="done" autocomplete="given-name"></div>
+   <h3>Pick your first hen</h3>
+   ${["leghorn", "barred"].map(k => `<button class="henpick" onclick="start('${k}')">${henSVG(k)}<span class="t"><b>${CH[k].name}</b><small>${CH[k].blurb}</small></span><span class="go">Adopt</span></button>`).join("")}
+   <p class="foot">${realSeason()[0]} ${realSeason()[1]}${HOL ? " · " + HOL.name : ""} · <span class="ver">${BUILD}</span></p></div>`);
+  audioBtns();
 }
 const pendingCode = (location.hash.match(/#(?:visit|gift)=(.+)$/) || [])[1];
 function afterLoad() { if (pendingCode) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} setTimeout(() => redeem(pendingCode), 2600); } }
 window.start = k => { const nm = $("#playerIn") ? $("#playerIn").value.trim().slice(0, 24) : ""; fresh(k); S.player = nm; S.started = true; S.login.last = new Date().toDateString(); S.login.days = 1;
   ["beetle", "cricket", "worm", "beetle"].forEach(b => spawnBug(b)); closeModal(); renderTools(); renderAll(); wander(); recenter();
-  say(`${nm ? `Hi ${esc(nm)}! ` : ""}Grandma left you a coop, a feeder, and a waterer. Now what? <i>Tip: tap the feeder or waterer to refill them, and lock the coop at night. Drag the yard to look around.</i>`, 1); save(); loop(); afterLoad(); };
+  save(); loop(); afterLoad(); musicTip(); };
 window.continueGame = () => { const sv = loadSave(); if (!sv) return; S = migrate(sv); S.started = true; henEls.forEach(el => el.remove()); henEls.clear(); henbarSig = "";
-  closeModal(); renderTools(); renderAll(); wander(); recenter(); loginBonus(); awayGift(); say(`Welcome back${S.player ? ", " + esc(S.player) : ""}! The hens missed you. Probably. ${HOL ? HOL.line : ""}`, 1); loop(); afterLoad(); };
+  closeModal(); renderTools(); renderAll(); wander(); recenter(); loginBonus(); awayGift(); say(`Welcome back${S.player ? ", " + esc(S.player) : ""}! The hens missed you. Probably. ${HOL ? HOL.line : ""}`, 1); loop(); afterLoad(); musicTip(); };
 let timer, wtimer;
 // Daytime hours last longer than night hours so players have time to build
 const hourMs = () => (isNight() ? 2000 : 4500) / S.speed;
 function step() { tick(); if (S.speed) timer = setTimeout(step, hourMs()); }
 function loop() { startLoop(); clearTimeout(timer); clearInterval(timer); if (S.speed) timer = setTimeout(step, hourMs()); clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
-$("#guyArt").innerHTML = guySVG; initParticles(); initPan(); audioBtns(); $("#goalbar").onclick = goalsModal; $("#recenter").onclick = e => { e.stopPropagation(); recenter(); };
+$("#guyArt").innerHTML = guySVG; initParticles(); initPan(); audioBtns(); $("#lvBadge").onclick = () => { gTab = "today"; goalsModal(); }; $("#dqBtn").onclick = () => { gTab = "today"; goalsModal(); }; $("#nextBtn").onclick = hintTap; $("#gearBtn").onclick = () => settingsModal(); $("#musicBtn").onclick = e => { e.stopPropagation(); toggleMusic(); }; $("#sfxBtn").onclick = e => { e.stopPropagation(); toggleSound(); }; $("#flockChip").onclick = () => { shopTab = "hens"; shop(); }; $("#bubble").onclick = () => { if ($("#bubble").classList.contains("more")) modal(`<div class="bubblefull"><div class="guyMini">${guySVG}</div><p><b>Brayden:</b> ${$("#bubbleText").innerHTML}</p></div><button class="buy big" onclick="closeModal()">OK</button>`); }; $("#recenter").onclick = e => { e.stopPropagation(); recenter(); };
 
 // Demo states for screenshots: ?demo=yard|night|shop|hensshop|coopshop|guardshop|henmodal|incubator|share|title|hawk|predator|goals|book|trade|land|barn|care|visit
 const demo = new URLSearchParams(location.search).get("demo");
 fresh("leghorn"); renderTools();
-if (!demo) { renderAll(); say("Welcome to Coop City!"); title(); startLoop(); }
+if (!demo) { renderAll(); say("Welcome to Coup City! It's like Coop City, but the chickens are in charge. <i>Tip: a coop is the house where chickens sleep and lay eggs.</i>"); title(); startLoop(); }
 else {
-  demoMode = true; S.started = true; S.coins = 48; S.day = 4; S.speed = 0; S.player = "Bill"; S.lvl = 3; S.xp = 22;
+  demoMode = true; S.started = true; S.coins = 48; S.day = 4; S.speed = 0; S.player = "Bill"; S.tut = 99; S.lvl = 3; S.xp = 22;
   const put = (t, i) => S.grid[T6(i)] = { type: t, lvl: t === "feeder" ? 70 : t === "waterer" ? 45 : 100 };
   S.grid = Array(N).fill(null); put("coop", 7); put("nest", 9); put("feeder", 13); put("waterer", 14); put("tree", 10);
   [19,20,21,25,26,27].forEach(i => put("run", i)); [0,1,2,3,4,5,6,12,18,24,30,36,37,38,39].forEach(i => put("fence", i));
