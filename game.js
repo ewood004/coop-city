@@ -50,7 +50,7 @@ const guySVG = `<svg viewBox="0 0 60 72"><circle cx="30" cy="9" r="6" fill="#5d4
 const ITEMS = {
   hand:    { name: "Tap", cost: 0 },
   coop:    { name: "Coop", cost: 30, max: 1, joke: "I bought a coop! Wait, the chickens sleep in it? Like a tiny hotel?", tip: "Hens roost in a coop at night. Lock it after dark to keep predators out." },
-  feeder:  { name: "Feeder", cost: 10, joke: "Tried feeding them avocado toast. Nope. Layer feed it is.", tip: "Laying hens need layer feed every day. Tap a feeder to refill it (2🪙)." },
+  feeder:  { name: "Feeder", cost: 10, joke: "Tried feeding them avocado toast. Nope. Layer feed it is.", tip: "Laying hens need layer feed every day. Tap a feeder to pour in a scoop from your feed bag. Buy more feed in the Shop." },
   waterer: { name: "Water", cost: 8, joke: "They don't want my sparkling water? Rude.", tip: "Fresh water is a must. No water, no eggs. Tap to refill (free)." },
   nest:    { name: "Nest box", cost: 8, joke: "It's a cozy little box for laying. Very Scandinavian.", tip: "Hens like a dark, comfy nest box to lay in. Without one they hide eggs in the grass." },
   run:     { name: "Run", cost: 6, joke: "A covered run! It's like a gated community for birds.", tip: "A covered run gives hens outdoor space and protects them from hawks." },
@@ -70,7 +70,7 @@ const QUIZ = [
 let S;
 function fresh(breed = "leghorn") {
   S = { coins: 60, day: 1, hour: 7, grid: Array(N).fill(null), hens: [], basket: [], ground: [], locked: false,
-    weather: WEATHER[0], speed: 1, collection: {}, said: {}, unlocked: { leghorn: true }, premium: {}, quizI: 0, lifetime: 0 };
+    weather: WEATHER[0], speed: 1, collection: {}, said: {}, unlocked: { leghorn: true }, premium: {}, quizI: 0, lifetime: 0, feed: 5, clean: 100 };
   // Starter yard: a basic coop, feeder, and waterer so new players aren't overwhelmed
   [["coop", 7], ["feeder", 13], ["waterer", 14]].forEach(([t, i]) => S.grid[i] = { type: t, lvl: 100 });
   addHen(breed, true);
@@ -129,6 +129,8 @@ function renderHUD() {
   $("#clockIcon").textContent = isNight() ? "🌙" : "☀️";
   $("#weather").textContent = S.weather.join(" ");
   $("#basketN").textContent = S.basket.length;
+  $("#feedN").textContent = S.feed; $("#cleanN").textContent = Math.round(S.clean) + "%";
+  $("#cleanStat").classList.toggle("warn", S.clean < 30); $("#feedStat").classList.toggle("warn", S.feed < 2);
   const lb = $("#lockBtn"); lb.textContent = S.locked ? "🔒 Locked" : "🔓 Coop open"; lb.classList.toggle("locked", S.locked);
   $("#speedBtn").textContent = S.speed ? `▶︎ ${S.speed}x` : "⏸ Paused";
   $("#night").style.opacity = isNight() ? 0.75 : (S.hour === 6 || S.hour === 19) ? 0.3 : 0;
@@ -180,6 +182,7 @@ function tick() {
     if (w === "Cold" && !has("coop")) { h.health -= 2; d -= 2; }
     if (w === "Rain" && !has("coop")) d -= 1;
     if (day && S.locked && S.hour > 7 && S.hour < 19) { d -= 3; sayOnce("stuck", "The hens are banging on the door. Oh. It's daytime. <i>Tip: unlock the coop in the morning.</i>", 1); }
+    if (has("coop") && S.clean < 30) { d -= 2; if (S.hour % 3 === 0) h.health -= 1; sayOnce("dirty", "Something smells... like a lot. <i>Tip: dirty bedding makes hens sick. Buy pine shavings in the Shop to clean the coop.</i>", 1); }
     if (has("coop") && totalFeed > 0 && totalWater > 0 && d > 0) h.health = Math.min(100, h.health + 1);
     h.happy = Math.max(0, Math.min(100, h.happy + d));
     h.health = Math.max(0, Math.min(100, h.health));
@@ -198,6 +201,8 @@ function tick() {
 }
 function newDay() {
   S.day++; S.weather = rnd(WEATHER);
+  if (has("coop")) S.clean = Math.max(0, S.clean - 6 * Math.max(1, S.hens.length));
+  if (S.feed < 2) sayOnce("lowfeed" + S.day, "The feed bag is almost empty. <i>Tip: buy a bag of layer feed in the Shop before it runs out.</i>", 1);
   if (S.weather[1] === "Cold") sayOnce("cold", "It's freezing! Do chickens wear sweaters? <i>Tip: a draft-free coop keeps hens warm. No sweaters needed.</i>", 1);
 }
 function layEggs() {
@@ -236,7 +241,7 @@ $("#grid").addEventListener("click", e => {
   if (eg) return collect(+eg.dataset.egg);
   const t = e.target.closest(".tile"); if (!t) return; const i = +t.dataset.i, g = S.grid[i];
   if (tool === "hand") {
-    if (g && g.type === "feeder") { if (S.coins < 2) return toast("Not enough coins"); S.coins -= 2; g.lvl = 100; floatAt(i, "-2🪙 feed"); }
+    if (g && g.type === "feeder") { if (S.feed < 1) { say("The feed bag is empty! <i>Tip: buy a bag of layer feed in the 🛒 Shop under Supplies.</i>", 1); return toast("Out of feed! Buy some in the Shop."); } S.feed--; g.lvl = 100; floatAt(i, "-1 scoop 🌾"); }
     else if (g && g.type === "waterer") { g.lvl = 100; floatAt(i, "💧 full"); }
     else if (g && g.type === "coop") return toggleLock();
     return renderAll();
@@ -280,12 +285,14 @@ $("#sellBtn").onclick = () => {
 window.sellAll = () => { const t = S.basket.reduce((a, e) => a + EGG_COLORS[e.color].value, 0); S.coins += t; S.basket = []; closeModal(); toast(`Sold! +${t}🪙`); renderAll(); };
 let shopTab = "hens";
 function shop() {
-  const tabs = `<div class="tabs">${[["hens","🐔 Hens"],["premium","⭐ Extras"],["quiz","❓ Quiz"]].map(([k,l])=>`<button class="${shopTab===k?"on":""}" onclick="shopTab('${k}')">${l}</button>`).join("")}</div>`;
+  const tabs = `<div class="tabs">${[["hens","🐔 Hens"],["supplies","🌾 Supplies"],["premium","⭐ Extras"],["quiz","❓ Quiz"]].map(([k,l])=>`<button class="${shopTab===k?"on":""}" onclick="shopTab('${k}')">${l}</button>`).join("")}</div>`;
   let body = "";
   if (shopTab === "hens") {
     body = Object.entries(CH).map(([k, b]) => `<div class="row">${henSVG(k)}<div class="t"><b>${b.name}</b> lays ${b.eggs.map(c => EGG_COLORS[c].label.toLowerCase()).join(" or ")}<br>${b.blurb}</div>
       <button class="buy" ${S.coins < b.price ? "disabled" : ""} onclick="buyHen('${k}')">${b.price ? b.price + "🪙" : "Free"}</button></div>`).join("")
       + Object.values(SPECIES).filter(s => s.comingSoon).map(s => `<div class="row" style="opacity:.6"><span style="font-size:36px">${s.icon}</span><div class="t"><b>${s.name} 🔒</b><br>${s.teaser}</div></div>`).join("");
+  } else if (shopTab === "supplies") {
+    body = `<p>🌾 Feed: <b>${S.feed}</b> scoops · 🧹 Coop: <b>${Math.round(S.clean)}%</b> clean</p>` + SUPPLIES.map(([k, t, d, p]) => `<div class="row"><div class="t"><b>${t}</b><br>${d}</div><button class="buy" ${S.coins < p ? "disabled" : ""} onclick="buySupply('${k}')">${p}🪙</button></div>`).join("");
   } else if (shopTab === "premium") {
     const P = [["twin","🏡 Twin with a real farm hen","Your hen is paired with a real hen on a small farm. Her real laying drives your eggs, plus weekly photos.","$4.99/mo"],
       ["pack","🌈 Rare breed pack","Unlock every breed instantly, including Marans and Ayam Cemani.","$2.99"],
@@ -298,6 +305,16 @@ function shop() {
   }
   modal(`<h2>🛒 Coop Shop</h2><p>🪙 ${S.coins} coins</p>${tabs}${body}<button class="act big" onclick="closeModal()">Close</button>`);
 }
+const SUPPLIES = [["feed", "🌾 Bag of layer feed", "10 scoops. Each scoop fills a feeder once.", 12],
+  ["shavings", "🪵 Pine shavings", "Clean out the coop and put down fresh bedding.", 6],
+  ["oyster", "🐚 Oyster shell", "Extra calcium for strong eggshells. Gives every hen a small health boost.", 5]];
+window.buySupply = k => { const it = SUPPLIES.find(x => x[0] === k); if (S.coins < it[3]) return toast("Not enough coins. Sell some eggs!");
+  if (k === "shavings" && !has("coop")) return toast("Build a coop first!");
+  S.coins -= it[3];
+  if (k === "feed") { S.feed += 10; toast("+10 scoops of feed"); sayOnce("boughtfeed", "Fifty pounds of chicken cereal. My trunk smells like a barn now.", 1); }
+  if (k === "shavings") { S.clean = 100; toast("Coop cleaned! Fresh bedding."); sayOnce("cleaned", "I cleaned the coop. I have seen things. <i>Tip: clean bedding keeps hens healthy.</i>", 1); }
+  if (k === "oyster") { S.hens.forEach(h => h.health = Math.min(100, h.health + 10)); toast("Hens got their calcium"); sayOnce("oyster", "I'm feeding them... seashells? <i>Fact: laying hens need extra calcium, and crushed oyster shell is a common source.</i>", 1); }
+  shop(); renderAll(); };
 window.shopTab = k => { shopTab = k; shop(); };
 window.buyHen = k => { const b = CH[k]; if (S.coins < b.price) return; if (S.hens.length >= 6) return toast("Coop is full (6 hens max)"); S.coins -= b.price; addHen(k); closeModal(); toast(`Welcome, ${S.hens.at(-1).name} the ${b.name}!`); say(`New hen! ${b.fact}`, 1); renderAll(); wander(); };
 window.mockPay = (t, p) => modal(`<h2>Demo checkout</h2><p><b>${t}</b> · ${p}</p><p class="demo">This is a prototype. No payment is taken.</p><button class="buy big" onclick="shopTab('premium')">Back to shop</button>`);
