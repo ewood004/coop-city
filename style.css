@@ -5,7 +5,9 @@ body{margin:0;font-family:"Trebuchet MS",system-ui,sans-serif;background:#2c3e50
 .stat{background:#5a4128;border-radius:8px;padding:4px 6px;white-space:nowrap}
 .stat b{color:#fff}
 #grid-wrap{position:relative;isolation:isolate;-webkit-transform:translateZ(0);transform:translateZ(0);margin:8px;border-radius:14px;overflow:hidden;border:4px solid #6b4b2a;box-shadow:0 4px 0 #4a321b}
-#grid{display:grid;grid-template-columns:repeat(6,1fr);background:#7cc35a}
+#grid-wrap{aspect-ratio:3/4;touch-action:none;-webkit-user-select:none;user-select:none;background:#5e8f45}
+#world{position:absolute;left:0;top:0;width:200%;height:150%;transform-origin:0 0;will-change:transform}
+#grid{display:grid;grid-template-columns:repeat(12,1fr);background:#7cc35a}
 .tile{aspect-ratio:1;position:relative;border:1px solid rgba(0,0,0,.06);background:
  radial-gradient(circle at 30% 30%,#8fd16a 0 12%,transparent 13%),radial-gradient(circle at 70% 75%,#6fb54e 0 10%,transparent 11%),#7cc35a;cursor:pointer}
 .tile:nth-child(odd){background-color:#78bf56}
@@ -17,9 +19,9 @@ body{margin:0;font-family:"Trebuchet MS",system-ui,sans-serif;background:#2c3e50
 .egg-drop{position:absolute;width:42%;height:50%;left:29%;top:22%;z-index:5;animation:bob 1s infinite alternate}
 @keyframes bob{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,-4px,0)}}
 #hens{position:absolute;inset:0;pointer-events:none}
-.hen{position:absolute;left:0;top:0;width:15%;transition:transform 2.2s ease-in-out,opacity .6s;-webkit-backface-visibility:hidden;backface-visibility:hidden;pointer-events:auto;cursor:pointer;z-index:4}
+.hen{position:absolute;left:0;top:0;width:7.5%;transition:opacity .6s;will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden;pointer-events:auto;cursor:pointer;z-index:4}
 .hen.inside{opacity:0;pointer-events:none}
-.hen .flipper{transition:transform .35s ease}
+.hen .flipper{transition:transform .22s cubic-bezier(.3,1.6,.5,1)}
 .hen.flip .flipper{transform:scaleX(-1)}
 .hen .bob{transform-origin:60% 90%;animation:idle 2.4s ease-in-out infinite}
 .hen .bob.pecking{animation:pecking .5s ease-in-out 2}
@@ -90,7 +92,7 @@ body{margin:0;font-family:"Trebuchet MS",system-ui,sans-serif;background:#2c3e50
 .slot{background:#fff3e0;border-radius:8px;text-align:center;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px}
 .slot svg{width:60%}.slot.empty{border:2px dashed #e0b080;background:transparent}
 .chickart{width:44px;flex:0 0 44px}.chickart svg{width:44px}
-.hen.roo{width:17%}
+.hen.roo{width:8.5%}
 
 /* Forage layer: bugs and worms (CSS transform animations only) */
 #forage{position:absolute;inset:0;pointer-events:none;z-index:3}
@@ -113,3 +115,72 @@ body{margin:0;font-family:"Trebuchet MS",system-ui,sans-serif;background:#2c3e50
 .tile .tuft.l2{opacity:.75;transform:scale(.8)}.tile .tuft.l1{opacity:.5;transform:scale(.6)}
 
 .title .ver{font-size:10px;opacity:.55;margin-top:2px}
+
+/* build 7 */
+.hen .bob.walk{animation:none}
+.hen .bob.dusting{animation:dust .35s ease-in-out infinite alternate}
+@keyframes dust{from{transform:translate3d(0,3px,0) rotate(-14deg) scaleY(.85)}to{transform:translate3d(0,4px,0) rotate(12deg) scaleY(.8)}}
+.hen .hat{position:absolute;left:58%;top:-10%;font-size:13px;pointer-events:none}
+.threat{position:absolute;left:0;top:0;font-size:34px;line-height:1;z-index:9;will-change:transform,opacity;pointer-events:auto;cursor:pointer;text-align:center;transition:opacity .4s}
+.threat span{display:block;filter:drop-shadow(0 3px 2px #0005)}
+.threat.big span{font-size:46px}
+.threat.night span{filter:drop-shadow(0 0 6px #ffe08a) drop-shadow(0 3px 2px #0007)}
+.threat small{display:block;font-size:9px;font-weight:bold;color:#fff;background:#0009;border-radius:6px;padding:0 4px;margin-top:-2px}
+.threat.shadow{width:44px;height:14px;border-radius:50%;background:radial-gradient(#0006,#0000 70%);pointer-events:none;z-index:3}
+.pt{position:absolute;left:0;top:0;font-size:15px;pointer-events:none;will-change:transform,opacity;z-index:10}
+#mini{position:absolute;top:6px;right:6px;width:54px;height:54px;background:#0005;border:1.5px solid #fff8;border-radius:6px;overflow:hidden;z-index:20;pointer-events:none}
+#mini i{position:absolute;background:#9e9e9e88;outline:1px solid #0003}
+#mini i.own{background:#8bd16acc}
+#mini b{position:absolute;left:0;top:0;width:54px;height:54px;border:2px solid #fff;transform-origin:0 0;will-change:transform;box-sizing:border-box}
+#recenter{position:absolute;right:6px;bottom:6px;z-index:20;border:0;border-radius:50%;width:38px;height:38px;font-size:18px;background:#fff9;box-shadow:0 2px 4px #0004}
+.tile.forsale{background:#5f7f4a;filter:saturate(.6) brightness(.85)}
+.tile.forsale::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,#0000 0 9px,#0000000d 9px 11px)}
+.tile.hascoop{z-index:2}
+.tile.water{background:#4fa3d9}
+.sign{position:absolute;inset:-20% -60%;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:3;font-size:22px;filter:none;text-align:center;line-height:1.05}
+.sign b{font-size:10px;background:#f5e6c4;border:2px solid #6b4b2a;border-radius:6px;padding:1px 5px;color:#3a2a1a}
+.sign small{font-size:10px;font-weight:bold;color:#fff;text-shadow:0 1px 0 #000}
+.coopart{position:absolute;left:0;top:0;width:100%;height:100%;z-index:2;pointer-events:none;transform-origin:50% 100%}
+.coopart svg{position:static!important;width:100%;height:100%;overflow:visible}
+.coopart.s1{width:200%}
+.coopart.s2{width:200%;height:200%}
+.coopart.buildup{animation:buildup .9s cubic-bezier(.3,1.5,.5,1)}
+@keyframes buildup{0%{transform:scale(.6,.1);opacity:.2}60%{transform:scale(1.05,1.1);opacity:1}100%{transform:scale(1,1)}}
+.tile .eyes{position:absolute;top:6%;right:4%;font-size:8px;z-index:4;animation:blink 1.6s steps(2) infinite}
+@keyframes blink{50%{opacity:.15}}
+#goalbar{display:flex;align-items:center;gap:6px;margin:6px 8px 0;padding:5px 8px;background:#fff8e6;border:2px solid #e0c48a;border-radius:12px;font-size:12px;cursor:pointer;white-space:nowrap;overflow:hidden}
+#goalbar .lv b{color:#7a4b00}
+#goalbar .xp{flex:0 0 46px;height:7px;background:#0002;border-radius:4px;overflow:hidden}
+#goalbar .xp i{display:block;height:100%;background:linear-gradient(90deg,#ffca28,#ff9800);transform-origin:0 50%;transform:scaleX(0);transition:transform .6s ease}
+#goalTxt{flex:1;overflow:hidden;text-overflow:ellipsis}
+#coinStat{position:relative}
+#coinStat.bump{animation:cbump .35s ease}
+@keyframes cbump{50%{transform:scale(1.18)}}
+#coinPop{position:absolute;left:50%;top:100%;font-weight:bold;color:#ffd54f;text-shadow:0 1px 0 #000;opacity:0;pointer-events:none;z-index:70;white-space:nowrap}
+#coinPop.on{animation:cpop 1.1s ease-out}
+@keyframes cpop{0%{opacity:0;transform:translate3d(-50%,0,0)}15%{opacity:1}100%{opacity:0;transform:translate3d(-50%,22px,0)}}
+.namerow{display:flex;gap:6px;margin:6px 0}
+.namerow input{flex:1;min-width:0;font-size:16px;padding:6px 8px;border-radius:8px;border:2px solid #e0c48a}
+textarea.code{width:100%;height:58px;font-size:11px;font-family:monospace;border-radius:8px;border:2px solid #e0c48a;padding:6px;word-break:break-all}
+.care{background:#fff3e0;border:2px solid #ffb74d;border-radius:10px;padding:6px 8px;margin:6px 0;font-size:13px}
+.hencard.alert{border-color:#ff9800;background:#fff3e0}
+.cbadge{margin-right:3px}
+.gstat{font-size:10px;color:#7a5a2a;white-space:nowrap}
+.badges{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.bdg{background:#eee;border-radius:10px;padding:6px 4px;text-align:center;font-size:11px;opacity:.6}
+.bdg.got{background:#fff3c4;opacity:1;border:2px solid #ffca28}
+.bdg span{display:block;font-size:22px}.bdg em{display:block;font-style:normal;color:#7a5a2a}
+.book{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;font-size:10px}
+.book svg{width:100%;max-width:56px;display:block;margin:0 auto}
+.book.eggs svg{max-width:26px}
+.book .unseen svg{filter:brightness(0) opacity(.25)}
+.visit{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;font-size:11px}
+.visit svg{width:60px}
+#night{z-index:2}
+#hud{flex-wrap:wrap;justify-content:center;gap:3px;padding:5px 6px 4px;font-size:12px}
+#hud .stat{padding:3px 5px}
+#goalbar{margin:5px 8px 0;padding:4px 8px}
+#grid-wrap{width:min(calc(100% - 16px),calc((100vh - 400px) * .75),calc((100svh - 400px) * .75));min-width:270px;margin:5px auto}
+#henbar{padding-bottom:4px}
+.threat.fr small{transform:scaleX(-1)}
+.visit svg{display:block;margin:0 auto}

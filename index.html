@@ -1,10 +1,10 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Coop City — a chicken sim for city slickers</title>
-<link rel="icon" href="data:,"><link rel="stylesheet" href="style.css?v=6"></head><body>
+<link rel="icon" href="data:,"><link rel="stylesheet" href="style.css?v=7"></head><body>
 <div id="app">
  <header id="hud">
-  <div class="stat" title="Coins">🪙 <b id="coins">0</b></div>
+  <div class="stat" id="coinStat" title="Coins">🪙 <b id="coins">0</b><span id="coinPop"></span></div>
   <div class="stat">📅 Day <b id="day">1</b></div>
   <div class="stat"><span id="clockIcon">☀️</span> <b id="clock">7:00</b></div>
   <div class="stat" id="weather">☀️ Sunny</div>
@@ -13,7 +13,8 @@
   <div class="stat" id="feedStat" title="Feed scoops">🌾 <b id="feedN">5</b></div>
   <div class="stat" id="cleanStat" title="Coop cleanliness">🧹 <b id="cleanN">100%</b></div>
  </header>
- <div id="grid-wrap"><div id="sky"></div><div id="grid"></div><div id="forage"></div><div id="hens"></div><div id="fx"></div><div id="night"></div></div>
+ <div id="goalbar" role="button" aria-label="Goals"><span class="lv">⭐<b id="lvN">1</b></span><span class="xp"><i id="xpFill"></i></span><span id="goalTxt"></span><span id="dqN"></span><span id="evChip"></span></div>
+ <div id="grid-wrap"><div id="world"><div id="sky"></div><div id="grid"></div><div id="forage"></div><div id="hens"></div><div id="fx"></div><div id="night"></div></div><div id="mini" aria-hidden="true"></div><button id="recenter" aria-label="Recenter on coop">🏠</button></div>
  <div id="henbar"></div>
  <div id="actions">
   <button id="lockBtn" class="act">🔓 Coop open</button>
@@ -26,4 +27,4 @@
  <div id="modal" class="hidden"><div class="card" id="modalCard"></div></div>
  <div id="toast"></div>
 </div>
-<script src="species.js?v=6"></script><script src="game.js?v=6"></script></body></html>
+<script src="species.js?v=7"></script><script src="game.js?v=7"></script></body></html>

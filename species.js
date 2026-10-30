@@ -49,12 +49,15 @@ window.SPECIES = {
     },
     // Roosters don't lay. One is needed for fertile eggs (chicks). Chick breed = hen x rooster.
     roosters: {
-      leghorn: { name: "Leghorn rooster", price: 35,
+      barnyard: { name: "Barnyard rooster", price: 15, guard: { alarm: 0.6, fight: 0.45 },
+        art: { body: "#b5532a", wing: "#8f3d1e", comb: "#e53935", combSize: 1.5, hackle: "#e39a2e", tail: "#1f2b20", tail2: "#2f5a3a", legs: "#e0b13a", beak: "#e2a53a" },
+        blurb: "Mixed breed, free spirit, zero chill. Thinks every crow (the bird) is a personal insult." },
+      leghorn: { name: "Leghorn rooster", price: 35, guard: { alarm: 0.75, fight: 0.35 },
         art: { body: "#fbfaf3", wing: "#e9e6d8", comb: "#e53935", combSize: 1.6, hackle: "#f3ecd2", tail: "#f4f1e6", tail2: "#e2ddcc", legs: "#f6c343", beak: "#f2b134" },
-        blurb: "Loud, proud, and convinced the sun rises because he yells at it." },
-      ayam: { name: "Ayam Cemani rooster", price: 90,
+        blurb: "Loud, proud, and convinced the sun rises because he yells at it. Spots hawks first, screams about it." },
+      ayam: { name: "Ayam Cemani rooster", price: 90, guard: { alarm: 0.55, fight: 0.65 },
         art: { body: "#141414", wing: "#232323", comb: "#2b1f2e", combSize: 1.6, tail: "#101010", tail2: "#1d3a2f", legs: "#222", beak: "#333", eye: "#111" },
-        blurb: "All black, all drama. Looks like he's headed to a goth concert." }
+        blurb: "All black, all drama. Looks like he's headed to a goth concert. Will absolutely fight a hawk." }
     },
     roosterFact: "Hens lay eggs without a rooster. You only need a rooster for fertile eggs that can hatch into chicks."
   },
@@ -62,11 +65,12 @@ window.SPECIES = {
     teaser: "Rooftop pigeon lofts for true city birds. Coming soon!", breeds: {} }
 };
 window.EGG_COLORS = {
-  white:     { fill: "#f7f4ea", label: "White", value: 2 },
-  brown:     { fill: "#c98d5a", label: "Brown", value: 3 },
-  lightbrown:{ fill: "#e0b98e", label: "Light brown", value: 3 },
-  cream:     { fill: "#eedfc0", label: "Cream", value: 4 },
-  blue:      { fill: "#a8d4e2", label: "Blue", value: 5 },
-  green:     { fill: "#a9c49a", label: "Green", value: 5 },
-  chocolate: { fill: "#6a3a24", label: "Chocolate", value: 6 }
+  white:     { fill: "#f7f4ea", label: "White", value: 4 },
+  brown:     { fill: "#c98d5a", label: "Brown", value: 5 },
+  lightbrown:{ fill: "#e0b98e", label: "Light brown", value: 5 },
+  cream:     { fill: "#eedfc0", label: "Cream", value: 6 },
+  blue:      { fill: "#a8d4e2", label: "Blue", value: 8 },
+  green:     { fill: "#a9c49a", label: "Green", value: 8 },
+  chocolate: { fill: "#6a3a24", label: "Chocolate", value: 10 },
+  golden:    { fill: "#f5c518", label: "Golden (just for fun)", value: 40 }
 };
