@@ -57,7 +57,7 @@ const ART = {
   hand: () => `<svg viewBox="0 0 100 100"><text x="50" y="70" font-size="58" text-anchor="middle">✋</text></svg>`,
   bulldoze: () => `<svg viewBox="0 0 100 100"><text x="50" y="68" font-size="56" text-anchor="middle">🧹</text></svg>`
 };
-const BUILD = "build 13 · first week";
+const BUILD = "build 14 · music picker";
 const guySVG = `<svg viewBox="0 0 60 72"><path d="M12 72 V47 Q30 35 48 47 V72Z" fill="#2e7d32"/><path d="M12 56 H48 M12 64 H48 M22 42 V72 M38 42 V72" stroke="#1b5e20" stroke-width="2"/><path d="M23 39 L30 47 L37 39Z" fill="#f1c7a0"/><rect x="25" y="33" width="10" height="7" fill="#f1c7a0"/><circle cx="30" cy="22" r="13" fill="#f1c7a0"/><path d="M19 27 Q30 40 41 27 Q41 34 30 36 Q19 34 19 27Z" fill="#6d4c41" opacity=".55"/><path d="M16 21 Q14 7 30 6 Q46 7 44 21 Q42 13 36 12 L33 9 L30 12 L26 9 L23 12 Q18 13 16 21Z" fill="#4e342e"/><rect x="17" y="18" width="11" height="6" rx="2" fill="#111"/><rect x="32" y="18" width="11" height="6" rx="2" fill="#111"/><line x1="28" y1="20" x2="32" y2="20" stroke="#111" stroke-width="1.5"/><path d="M25 29 Q30 32 35 29" stroke="#5d2f1a" stroke-width="1.8" fill="none" stroke-linecap="round"/><rect x="44" y="49" width="10" height="13" rx="2" fill="#fff" stroke="#795548"/><rect x="44" y="52" width="10" height="4" fill="#8d6e63"/></svg>`;
 
 /* ---------- COOP ART PER LEVEL ---------- */
@@ -316,8 +316,9 @@ function floatAt(i, text) {
   const p = tilePos(i); el.style.left = ux(p.x + 2); el.style.top = uy(p.y - 1);
   $("#fx").appendChild(el); setTimeout(() => el.remove(), 1300);
 }
-function modal(html) { const m = $("#modal"), c = $("#modalCard"); clearTimeout(m._t); m.classList.remove("closing"); c.innerHTML = html; c.scrollTop = 0;
-  if (m.classList.contains("hidden")) { m.classList.remove("hidden"); m.classList.remove("show"); void m.offsetWidth; m.classList.add("show"); } if (fbOpen()) toastPause(); if (S && S.started) requestAnimationFrame(coach); }
+function modal(html) { const m = $("#modal"), c = $("#modalCard"); clearTimeout(m._t); m.classList.remove("closing"); c.innerHTML = html; c.scrollTop = 0; m.scrollTop = 0;
+  if (m.classList.contains("hidden")) { m.classList.remove("hidden"); m.classList.remove("show"); void m.offsetWidth; m.classList.add("show"); } c.scrollTop = 0; m.scrollTop = 0; // again once visible: a hidden card keeps its old scroll
+  if (fbOpen()) toastPause(); if (S && S.started) requestAnimationFrame(coach); }
 function closeModal() { const m = $("#modal"); if (m.classList.contains("hidden") || m.classList.contains("closing")) return; m.classList.add("closing");
   m._t = setTimeout(() => { m.classList.add("hidden"); m.classList.remove("closing", "show"); if (S && S.started) coach(); }, 170); }
 window.closeModal = closeModal;
@@ -613,9 +614,8 @@ function sparkle(x, y) { const layer = $("#fly"); for (let i = 0; i < 7; i++) { 
 window.settingsModal = () => {
   const sw = (on, fn, ic, label, sub) => `<button class="setrow" onclick="${fn}"><span class="si">${ic}</span><span class="st"><b>${label}</b>${sub ? `<small>${sub}</small>` : ""}</span><span class="switch ${on ? "on" : ""}"><i></i></span></button>`;
   modal(`<h2>⚙️ Settings</h2>
+   ${musicList()}
    <button class="setrow fbrow" onclick="feedback()"><span class="si">💬</span><span class="st"><b>Send feedback to Bill</b><small>Takes 10 seconds. He reads every one.</small></span><span class="chev">›</span></button>
-   <div class="mpick" role="radiogroup" aria-label="Music"><h3>🎵 Music</h3>${MUSIC_OPTS.map(([k, n, sub]) => `<button class="mopt ${musicPick === k ? "on" : ""}" role="radio" aria-checked="${musicPick === k}" onclick="pickMusic('${k}')"><span class="dot"></span><span class="st"><b>${n}</b><small>${k === "auto" ? `${sub}: ${MUSIC_NAME[autoTrack()]} right now` : sub}</small></span></button>`).join("")}
-   <p class="nowp">${nowPlaying()}</p><p class="hint">At night the music-box lullaby takes over (the two beats keep going, softer, while the hens sleep).</p></div>
    ${sw(soundOn, "toggleSound()", "🔊", "Farm sounds", "Clucks, egg pops, coins, rooster crow")}
    ${navigator.vibrate ? sw(vibOn, "toggleVib()", "📳", "Vibration", "A tiny buzz when you tap things") : ""}
    <p class="hint">Hearing nothing on iPhone? Turn the volume up with the side buttons, then tap 🎵.</p>
@@ -1172,9 +1172,9 @@ function sfx(kind) { if (!soundOn || !ac() || AC.state !== "running") return; co
   } catch (e) {} }
 const beep = sfx;
 function audioBtns() { const m = $("#musicBtn"), x = $("#sfxBtn");
-  if (m) { m.classList.toggle("off", !musicOn); m.setAttribute("aria-pressed", musicOn); m.setAttribute("aria-label", musicOn ? "Music on. Tap to mute" : "Music off. Tap to play"); }
+  if (m) { m.classList.toggle("off", !musicOn); m.removeAttribute("aria-pressed"); m.setAttribute("aria-label", "Music: choose a track or turn it off"); }
   if (x) { x.textContent = soundOn ? "🔊" : "🔇"; x.classList.toggle("off", !soundOn); x.setAttribute("aria-pressed", soundOn); x.setAttribute("aria-label", soundOn ? "Farm sounds on" : "Farm sounds off"); }
-  const tp = $("#titleMusic"); if (tp) { tp.innerHTML = `🎵 Music: <b>${musicOn ? (musicPick === "auto" ? "On" : MUSIC_NAME[musicPick]) : "Off"}</b>`; tp.classList.toggle("off", !musicOn); }
+  const tp = $("#titleMusic"); if (tp) { tp.innerHTML = `🎵 Music: <b>${musicOn ? (musicPick === "auto" ? "Auto · " + MUSIC_NAME[autoTrack()] : MUSIC_NAME[musicPick]) : "Off"}</b> <span class="chev">›</span>`; tp.setAttribute("aria-label", "Choose music"); tp.classList.toggle("off", !musicOn); }
   if (keepAlive && !(musicOn || soundOn)) keepAlive.pause(); }
 const reopenSettings = () => { const c = $("#modalCard"); if (!$("#modal").classList.contains("hidden") && c.querySelector(".setrow")) settingsModal(); };
 let musicLast = "auto"; try { const v = localStorage.getItem("coopcity-musiclast"); if (MUSIC_OPTS.some(o => o[0] === v && v !== "off")) musicLast = v; } catch (e) {}
@@ -1182,12 +1182,20 @@ function setPick(k) { musicPick = k; musicOn = k !== "off"; if (musicOn) { music
   try { localStorage.setItem("coopcity-music", k); if (musicOn) localStorage.setItem("coopcity-musiclast", k); } catch (e) {} }
 // Settings picker: plays the choice right away with a short crossfade so players can audition it
 window.pickMusic = k => { if (!MUSIC_OPTS.some(o => o[0] === k)) return; musFade = 1.5; setPick(k); setTimeout(() => { musFade = 3; }, 2500); audioStart(); buzz(10); audioBtns();
-  const c = $("#modalCard"); if (c && c.querySelector(".mpick")) { const sc = [c, ...c.querySelectorAll("*")].filter(e => e.scrollTop).map(e => [e, e.scrollTop]); settingsModal(); sc.forEach(([e, t]) => { const n = e === c ? c : null; if (n) n.scrollTop = t; }); const mb = $("#modalCard .mopt.on"); if (mb && mb.scrollIntoView) mb.scrollIntoView({ block: "nearest" }); } };
+  const c = $("#modalCard"); if (c && c.querySelector(".msheet")) { const t = c.scrollTop, ft = sheetFromTitle; musicSheet(); sheetFromTitle = ft; c.scrollTop = t; return; }
+  if (c && c.querySelector(".mpick")) { const sc = [c, ...c.querySelectorAll("*")].filter(e => e.scrollTop).map(e => [e, e.scrollTop]); settingsModal(); sc.forEach(([e, t]) => { const n = e === c ? c : null; if (n) n.scrollTop = t; }); const mb = $("#modalCard .mopt.on"); if (mb && mb.scrollIntoView) mb.scrollIntoView({ block: "nearest" }); } };
+// One list, used by the 🎵 Music sheet (title pill + yard 🎵 button) and by Settings. One tap picks and plays.
+const musicList = () => `<div class="mpick" role="radiogroup" aria-label="Music"><h3>🎵 Music <small>tap a track to play it</small></h3>${MUSIC_OPTS.map(([k, n, sub]) => `<button class="mopt ${musicPick === k ? "on" : ""}" role="radio" aria-checked="${musicPick === k}" onclick="pickMusic('${k}')"><span class="dot"></span><span class="st"><b>${n}</b><small>${k === "auto" ? `${sub}: ${MUSIC_NAME[autoTrack()]} right now` : sub}</small></span></button>`).join("")}
+   <p class="nowp">${nowPlaying()}</p><p class="hint">At night the music-box lullaby takes over (the two beats keep going, softer, while the hens sleep).</p></div>`;
+let sheetFromTitle = false;
+window.musicSheet = () => { sheetFromTitle = !!$("#modalCard .title") && !$("#modal").classList.contains("hidden"); audioStart();
+  modal(`<div class="msheet"><h2>🎵 Music</h2>${musicList()}<button class="act big" onclick="musicSheetDone()">${sheetFromTitle ? "‹ Back" : "Done"}</button></div>`); };
+window.musicSheetDone = () => { if (sheetFromTitle || !(S && S.started)) title(); else closeModal(); };
 const nowPlaying = () => !musicOn ? "Music is off" : `♪ Now playing: ${MUSIC_NAME[musicNight() && !BEATS[curDay] ? "night" : curDay]}${musicPick === "auto" && !musicNight() ? " (Auto)" : ""}`;
 window.toggleMusic = () => { setPick(musicOn ? "off" : musicLast); audioStart(); buzz(10); toast(musicOn ? "🎵 Music on" : "🎵 Music off", 1); audioBtns(); reopenSettings(); };
 window.toggleSound = () => { soundOn = !soundOn; try { localStorage.setItem("coopcity-sound", soundOn ? "1" : "0"); } catch (e) {} audioStart(); buzz(10); sfx("cluck"); toast(soundOn ? "🔊 Farm sounds on" : "🔇 Farm sounds off", 1); audioBtns(); reopenSettings(); };
 function musicTip() { let seen = false; try { seen = localStorage.getItem("coopcity-mtip") === "1"; localStorage.setItem("coopcity-mtip", "1"); } catch (e) {}
-  if (seen || !musicOn) return; setTimeout(() => { toast("🎵 Music on. Tap the 🎵 button to mute.", 1); const d = $("#dock"); d.classList.add("hey"); setTimeout(() => d.classList.remove("hey"), 4200); }, 900); }
+  if (seen || !musicOn) return; setTimeout(() => { toast("🎵 Tap the 🎵 button to pick a song or turn music off.", 1); const d = $("#dock"); d.classList.add("hey"); setTimeout(() => d.classList.remove("hey"), 4200); }, 900); }
 function coinPop(n) { const el = $("#coinPop"); if (!el) return; el.textContent = (n > 0 ? "+" : "") + n + "🪙"; el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
   const st = $("#coinStat"); st.classList.remove("bump"); void st.offsetWidth; st.classList.add("bump"); }
 function gain(n, why, from) { if (!n) return; S.coins += n; coinPop(n); beep("coin"); buzz(12); coinFly(n, from || coachPoint() || centerOf("#toast")); if (why) toast(why); }
@@ -1437,7 +1445,15 @@ function threatHour() {
 /* ---------- SAVE / LOAD ---------- */
 const SAVE_KEY = "coopcity-save-v1";
 let demoMode = false, saveT;
-function save() { if (demoMode || !S || !S.started) return; S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+// New farm safety: a reset stamps coopcity-resetat. Any page (another tab, a bfcache copy) whose farm began before that stamp is stale and must never save.
+let resetting = false, farmAt = 0;
+const resetAt = () => { try { return +localStorage.getItem("coopcity-resetat") || 0; } catch (e) { return 0; } };
+const staleFarm = () => !demoMode && S && S.started && resetAt() > farmAt;
+function farmGone() { resetting = true; try { stopLoop(); } catch (e) {} clearTimeout(timer); clearInterval(wtimer); clearTimeout(saveT); if (S) S.started = false; location.replace(location.pathname + "?fresh=" + Date.now()); }
+window.addEventListener("storage", e => { if (e.key === "coopcity-resetat" && staleFarm()) farmGone(); });
+window.addEventListener("pageshow", () => { if (staleFarm()) farmGone(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && staleFarm()) farmGone(); });
+function save() { if (resetting || demoMode || !S || !S.started) return; if (staleFarm()) return farmGone(); S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
 function saveSoon() { clearTimeout(saveT); saveT = setTimeout(save, 250); }
 window.addEventListener("pagehide", save);
 function migrate(s) {
@@ -1550,7 +1566,7 @@ function goalsModal() { if (!gTabs.includes(gTab)) gTab = "today";
     <p class="demo">Codes work offline and each gift opens once per device. Live neighbors would need a server later.</p>`;
   else body = `<p><b>Your farmer name</b></p><div class="namerow"><input id="playerIn" maxlength="24" value="${esc(S.player)}" placeholder="Your name"><button class="buy" onclick="setPlayer()">Save</button></div>
     <p>Charlie is your clueless neighbor and guide. You're the one in charge.</p>
-    <button class="act big" onclick="toggleMusic()">${musicOn ? "🎵 Music on" : "🎵 Music off"}</button>
+    <button class="act big" onclick="musicSheet()">🎵 Music: ${musicOn ? MUSIC_NAME[musicPick === "auto" ? autoTrack() : musicPick] : "Off"} ›</button>
     <button class="act big" onclick="toggleSound()">${soundOn ? "🔊 Farm sounds on" : "🔇 Farm sounds off"}</button>
     <button class="act big" onclick="resetGame('farm')">🌱 Start a new farm…</button><p style="font-size:12px">Progress saves automatically on this device.</p>`;
   modal(`<h2>🐔 ${esc(S.player ? S.player + "'s farm" : "My farm")}</h2><div class="tabs">${tabs}</div>${body}<button class="act big" onclick="closeModal()">Close</button>`);
@@ -1565,10 +1581,11 @@ window.resetGame = from => { resetFrom = from || "settings"; const sv = S && S.s
    <button class="buy big cull" id="resetYes" onclick="doReset()">🗑️ Erase &amp; start over</button><button class="act big" id="resetNo" onclick="keepFarm()">💛 Keep my farm</button>`); };
 window.keepFarm = () => resetFrom === "title" ? title() : resetFrom === "farm" ? (gTab = "farm", goalsModal()) : settingsModal();
 window.doReset = () => { // stop everything first so pagehide/visibilitychange can't write the old farm back
-  try { stopLoop(); } catch (e) {} clearTimeout(timer); clearInterval(wtimer); if (S) S.started = false;
+  resetting = true; try { stopLoop(); } catch (e) {} clearTimeout(timer); clearInterval(wtimer); clearTimeout(saveT); if (S) S.started = false;
+  const ts = Date.now(); try { localStorage.setItem("coopcity-resetat", String(ts)); } catch (e) {} // stamp first: other tabs see it and stop saving
   try { ["coopcity-save-v1", "coopcity-fbask", "coopcity-fbsent", "coopcity-fbdraft"].forEach(k => localStorage.removeItem(k));
     const last = JSON.parse(localStorage.getItem("coopcity-fblast") || "null"); if (last) localStorage.setItem("coopcity-fblast", JSON.stringify({ sig: "", at: last.at || 0 })); } catch (e) {} // keep only the rate-limit time
-  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} location.reload(); };
+  location.replace(location.pathname + "?fresh=" + ts); };
 
 /* ---------- INPUT ---------- */
 function setTool(k) { tool = k; renderTools(); $("#grid").classList.toggle("placing", k !== "hand" && k !== "bulldoze"); $("#grid").classList.toggle("removing", k === "bulldoze"); }
@@ -1899,9 +1916,9 @@ function title() {
   modal(`<div class="title"><div class="logo"><div class="rays"></div><div class="cloud c1"></div><div class="cloud c2"></div><div class="hill"></div><div class="peek">${henSVG("leghorn")}</div><div class="peek p2">${henSVG("barred")}</div>
    <h1 aria-label="Coup City">${[..."Coup City"].map((c, i) => `<span style="--i:${i}"${i === 0 ? ' class="king"' : ""}>${i === 0 ? '<em class="crown" aria-hidden="true">👑</em>' : ""}${c === " " ? "&nbsp;" : c}</span>`).join("")}</h1></div>
    <div class="sub">Chickens for people who can't have chickens (yet).</div>
-   <button class="pill" id="titleMusic" onclick="toggleMusic()"></button>
+   <button class="pill" id="titleMusic" onclick="musicSheet()"></button>
    ${sv && sv.hens ? `<button class="buy big cta" onclick="continueGame()">▶️ Continue${sv.player ? " as " + esc(sv.player) : ""} <small>Day ${sv.day}</small></button>
-   <button class="act big newfarm" onclick="resetGame('title')">🌱 New farm</button>` : `<div class="intro"><div class="guyMini">${guySVG}</div><p class="say"><b>Charlie:</b> Hi, I'm Charlie, your neighbor. I just got chickens too and I have NO idea what I'm doing. What's your name?</p></div>
+   <button class="act big newfarm" onclick="resetGame('title')">🌱 New farm</button>` : `${freshNote ? `<div class="freshnote" role="status">🌱 <b>Fresh start!</b> Your old farm was erased. New name, new hens, Day 1.</div>` : ""}<div class="intro"><div class="guyMini">${guySVG}</div><p class="say"><b>Charlie:</b> Hi, I'm Charlie, your neighbor. I just got chickens too and I have NO idea what I'm doing. What's your name?</p></div>
    <div class="namerow"><input id="playerIn" maxlength="24" placeholder="Your farmer name (optional)" enterkeyhint="done" autocomplete="given-name"></div>
    <h3>Pick your starter flock</h3><p class="hint trio">Hens hate being alone, so they come in threes.</p>
    ${["leghorn", "barred"].map(k => `<button class="henpick" onclick="start('${k}')">${henSVG(k)}<span class="t"><b>${CH[k].name}</b><small>${CH[k].blurb}</small></span><span class="go">Adopt 3</span></button>`).join("")}`}
@@ -1911,20 +1928,22 @@ function title() {
 }
 const pendingCode = (location.hash.match(/#(?:visit|gift)=(.+)$/) || [])[1];
 function afterLoad() { if (pendingCode) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} setTimeout(() => redeem(pendingCode), 2600); } }
-window.start = k => { const nm = $("#playerIn") ? $("#playerIn").value.trim().slice(0, 24) : ""; fresh(k); S.player = nm; S.started = true; S.login.last = new Date().toDateString(); S.login.days = 1;
+window.start = k => { farmAt = Date.now(); freshNote = false; const nm = $("#playerIn") ? $("#playerIn").value.trim().slice(0, 24) : ""; fresh(k); S.player = nm; S.started = true; S.login.last = new Date().toDateString(); S.login.days = 1;
   ["beetle", "cricket", "worm", "beetle"].forEach(b => spawnBug(b)); closeModal(); renderTools(); renderAll(); wander(); recenter();
   save(); loop(); afterLoad(); musicTip(); };
-window.continueGame = () => { const sv = loadSave(); if (!sv) return; S = migrate(sv); S.started = true; henEls.forEach(el => el.remove()); henEls.clear(); henbarSig = "";
+window.continueGame = () => { const sv = loadSave(); if (!sv) return title(); farmAt = Date.now(); S = migrate(sv); S.started = true; henEls.forEach(el => el.remove()); henEls.clear(); henbarSig = "";
   closeModal(); renderTools(); renderAll(); wander(); recenter(); loginBonus(); awayGift(); say(`Welcome back${S.player ? ", " + esc(S.player) : ""}! The hens missed you. Probably. ${HOL ? HOL.line : ""}`, 1); loop(); afterLoad(); musicTip(); };
 let timer, wtimer;
 // Daytime hours last longer than night hours so players have time to build
 const hourMs = () => (isNight() ? 2000 : 4500) / S.speed;
 function step() { tick(); if (S.speed) timer = setTimeout(step, hourMs()); }
 function loop() { startLoop(); clearTimeout(timer); clearInterval(timer); if (S.speed) timer = setTimeout(step, hourMs()); clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
-$("#guyArt").innerHTML = guySVG; initParticles(); initPan(); audioBtns(); $("#scrapBtn").onclick = e => { e.stopPropagation(); scrapTray(); }; $("#lvBadge").onclick = () => { gTab = "today"; goalsModal(); }; $("#dqBtn").onclick = () => { gTab = "today"; goalsModal(); }; $("#nextBtn").onclick = hintTap; $("#gearBtn").onclick = () => settingsModal(); $("#fbBtn").onclick = e => { e.stopPropagation(); feedback(); }; $("#musicBtn").onclick = e => { e.stopPropagation(); toggleMusic(); }; $("#sfxBtn").onclick = e => { e.stopPropagation(); toggleSound(); }; $("#flockChip").onclick = () => { shopTab = "hens"; shop(); }; $("#bubble").onclick = () => { if ($("#bubble").classList.contains("more")) modal(`<div class="bubblefull"><div class="guyMini">${guySVG}</div><p><b>Charlie:</b> ${$("#bubbleText").innerHTML}</p></div><button class="buy big" onclick="closeModal()">OK</button>`); }; $("#recenter").onclick = e => { e.stopPropagation(); recenter(); };
+$("#guyArt").innerHTML = guySVG; initParticles(); initPan(); audioBtns(); $("#scrapBtn").onclick = e => { e.stopPropagation(); scrapTray(); }; $("#lvBadge").onclick = () => { gTab = "today"; goalsModal(); }; $("#dqBtn").onclick = () => { gTab = "today"; goalsModal(); }; $("#nextBtn").onclick = hintTap; $("#gearBtn").onclick = () => settingsModal(); $("#fbBtn").onclick = e => { e.stopPropagation(); feedback(); }; $("#musicBtn").onclick = e => { e.stopPropagation(); musicSheet(); }; $("#sfxBtn").onclick = e => { e.stopPropagation(); toggleSound(); }; $("#flockChip").onclick = () => { shopTab = "hens"; shop(); }; $("#bubble").onclick = () => { if ($("#bubble").classList.contains("more")) modal(`<div class="bubblefull"><div class="guyMini">${guySVG}</div><p><b>Charlie:</b> ${$("#bubbleText").innerHTML}</p></div><button class="buy big" onclick="closeModal()">OK</button>`); }; $("#recenter").onclick = e => { e.stopPropagation(); recenter(); };
 
 // Demo states for screenshots: ?demo=yard|night|shop|hensshop|coopshop|guardshop|henmodal|incubator|share|title|hawk|predator|goals|book|trade|land|barn|care|visit
 const demo = new URLSearchParams(location.search).get("demo");
+let freshNote = new URLSearchParams(location.search).has("fresh") && !loadSave();
+if (/[?&]fresh=/.test(location.search)) { try { history.replaceState(null, "", location.pathname + location.search.replace(/[?&]fresh=\d*/, "").replace(/^&/, "?") + location.hash); } catch (e) {} }
 fresh("leghorn"); renderTools();
 if (!demo) { renderAll(); say("Welcome to Coup City! It's like Coop City, but the chickens are in charge. <i>Tip: a coop is the house where chickens sleep and lay eggs.</i>"); title(); startLoop(); }
 else {

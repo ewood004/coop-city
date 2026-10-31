@@ -646,3 +646,9 @@ body:has(#modal:not(.hidden)) #toast{display:-webkit-box;-webkit-box-orient:vert
 .mopt.on{border-color:#f0a020;background:#fff3d6}.mopt.on .dot{background:radial-gradient(#f08a00 45%,#fff 50%)}
 .mopt .st{display:flex;flex-direction:column}.mopt small{font-size:12px;opacity:.75}
 .nowp{font-size:13px;font-weight:700;margin:2px 0 4px;color:#6b4b2a}
+/* build 14: music sheet */
+.mpick h3 small{font-size:12px;font-weight:600;opacity:.65;margin-left:6px}
+.msheet h2{margin-top:2px}.msheet .act.big{margin-top:6px}
+#titleMusic .chev{opacity:.6;margin-left:2px}
+.freshnote{background:#e6f6dc;border:2px solid #7cc35a;color:#2f5a1e;border-radius:14px;padding:10px 12px;margin:8px 0 4px;font-size:15px;line-height:1.3;text-align:left}
+.msheet .mpick h3{font-size:0;margin:0 0 6px}.msheet .mpick h3 small{font-size:13px;margin:0}
