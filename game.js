@@ -57,7 +57,7 @@ const ART = {
   hand: () => `<svg viewBox="0 0 100 100"><text x="50" y="70" font-size="58" text-anchor="middle">✋</text></svg>`,
   bulldoze: () => `<svg viewBox="0 0 100 100"><text x="50" y="68" font-size="56" text-anchor="middle">🧹</text></svg>`
 };
-const BUILD = "build 12 · feedback";
+const BUILD = "build 13 · first week";
 const guySVG = `<svg viewBox="0 0 60 72"><path d="M12 72 V47 Q30 35 48 47 V72Z" fill="#2e7d32"/><path d="M12 56 H48 M12 64 H48 M22 42 V72 M38 42 V72" stroke="#1b5e20" stroke-width="2"/><path d="M23 39 L30 47 L37 39Z" fill="#f1c7a0"/><rect x="25" y="33" width="10" height="7" fill="#f1c7a0"/><circle cx="30" cy="22" r="13" fill="#f1c7a0"/><path d="M19 27 Q30 40 41 27 Q41 34 30 36 Q19 34 19 27Z" fill="#6d4c41" opacity=".55"/><path d="M16 21 Q14 7 30 6 Q46 7 44 21 Q42 13 36 12 L33 9 L30 12 L26 9 L23 12 Q18 13 16 21Z" fill="#4e342e"/><rect x="17" y="18" width="11" height="6" rx="2" fill="#111"/><rect x="32" y="18" width="11" height="6" rx="2" fill="#111"/><line x1="28" y1="20" x2="32" y2="20" stroke="#111" stroke-width="1.5"/><path d="M25 29 Q30 32 35 29" stroke="#5d2f1a" stroke-width="1.8" fill="none" stroke-linecap="round"/><rect x="44" y="49" width="10" height="13" rx="2" fill="#fff" stroke="#795548"/><rect x="44" y="52" width="10" height="4" fill="#8d6e63"/></svg>`;
 
 /* ---------- COOP ART PER LEVEL ---------- */
@@ -132,6 +132,7 @@ const N_TITLE = ["Lady","Sir","Duchess","Captain","Professor","Madame","Aunt","L
 const N_FOOD = ["Biscuit","Waffle","Noodle","Nugget","Muffin","Pickle","Crumpet","Dumpling","Pancake","Tater","Gravy","Pudding","Cobbler","Meatloaf","Butterbean","Cornbread","Jellybean","Pretzel","Turnip","Crouton"];
 const N_SUF = ["McFluff","Von Cluck","the Third","of the Coop","Featherbottom","Pecksworth","the Brave","the Bossy","Esquire","Cluckington","the Magnificent","Scratchwell","Beakman","the Unbothered","of Backyard Manor"];
 const used = () => S ? S.hens.map(h => h.name) : [];
+const uniqName = () => { let n; for (let k = 0; k < 12; k++) { n = funnyName(); if (!(S.hens || []).some(h => h.name === n)) break; } return n; };
 function funnyName() {
   for (let k = 0; k < 20; k++) {
     const n = Math.random() < 0.65 ? rnd(FUNNY) : Math.random() < 0.5 ? `${rnd(N_TITLE)} ${rnd(N_FOOD)} ${rnd(N_SUF)}` : `${rnd(N_FOOD)} ${rnd(N_SUF)}`;
@@ -254,11 +255,14 @@ function fresh(breed = "leghorn") {
   migrate(S); initTufts(); rollDaily();
   // Starter yard: a basic coop, feeder, and waterer so new players aren't overwhelmed
   [["coop", 7], ["feeder", 13], ["waterer", 14]].forEach(([t, i]) => S.grid[T6(i)] = { type: t, lvl: t === "feeder" ? 25 : t === "waterer" ? 35 : 100 });
-  addHen(breed, true); S.tut = 0;
+  // Starter flock: three pullets at point of lay. Chickens are flock animals and a lone hen is stressed,
+  // so extension guides recommend at least 3. It also exactly fills the starter coop (cap 3).
+  for (let k = 0; k < 3; k++) addHen(breed, true);
+  S.farm13 = 1; S.goals.hens3 = 1; S.tut = 0;
 }
 function addHen(breed, free, mix) {
   const b = CH[breed];
-  S.hens.push({ id: Math.random(), breed, name: funnyName(), age: 0, mix: !!mix, health: 90, happy: 80, egg: rnd(b.eggs), x: 40 + Math.random() * 30, y: 40 + Math.random() * 30, flip: false, pers: rnd(Object.keys(PERS)), cond: null });
+  S.hens.push({ id: Math.random(), breed, name: uniqName(), got: S.day || 1, age: 0, mix: !!mix, health: 90, happy: 80, egg: rnd(b.eggs), x: 40 + Math.random() * 30, y: 40 + Math.random() * 30, flip: false, pers: rnd(Object.keys(PERS)), cond: null });
   S.seen[breed] = 1; return S.hens.at(-1);
 }
 const capacity = () => has("coop") ? COOPS[S.coopLvl].cap : 3;
@@ -278,7 +282,15 @@ const CULL_VALUE = 5;
 const chickValue = c => SPECIAL[c.breed] ? SPECIAL[c.breed][2] : Math.min(12, 6 + Math.round(CH[c.breed].price / 12)) - (c.mix ? 1 : 0);
 const tilesOf = t => S.grid.map((g, i) => g && g.type === t ? i : -1).filter(i => i >= 0);
 const has = t => tilesOf(t).length > 0;
-const isNight = () => S.hour >= 20 || S.hour < 6;
+// Bedtime follows the real calendar: hens go to roost around sunset at ~39°N (mid-US), on local clock time (US daylight saving).
+function usDST(d) { const y = d.getFullYear(), sun = (m, n) => { const f = new Date(y, m, 1); return new Date(y, m, 1 + ((7 - f.getDay()) % 7) + 7 * (n - 1)); };
+  return d >= sun(2, 2) && d < sun(10, 1); }
+function duskHour(d = new Date()) { const doy = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5), lat = 39 * Math.PI / 180;
+  const dec = 23.44 * Math.PI / 180 * Math.sin(2 * Math.PI * (284 + doy) / 365), ha = Math.acos(Math.max(-1, Math.min(1, -Math.tan(lat) * Math.tan(dec))));
+  return Math.max(17, Math.min(21, Math.round(12.2 + (usDST(d) ? 1 : 0) + 12 * ha / Math.PI))); }
+let DUSK = duskHour();
+const hr12 = h => `${((h + 11) % 12) + 1}${h < 12 ? "am" : "pm"}`;
+const isNight = () => S.hour >= DUSK || S.hour < 6;
 
 /* ---------- UI helpers ---------- */
 let bubbleTimer;
@@ -294,7 +306,7 @@ function toast(t, now, pri) { t = { t, at: performance.now(), now: !!now, pri: !
 const fbOpen = () => !$("#modal").classList.contains("hidden") && !!$("#modalCard .fbform, #modalCard .fbthanks"); // someone typing feedback: hold news (predator warnings still show)
 function toastPause() { const el = $("#toast"); if (el.classList.contains("on") && !/^⚠️/.test(el.textContent)) { toastQ.unshift({ t: el.textContent, at: performance.now(), now: false, pri: true }); clearTimeout(el._t); el.classList.remove("on"); } toastNext(); }
 function toastNext() { const el = $("#toast"); clearTimeout(toastNext._t);
-  if (toastQ.length && ($("#modalCard .title") || (frzOn && !toastQ[0].now) || (fbOpen() && !/^⚠️/.test(toastQ[0].t)))) { toastQ.forEach(q => q.at = performance.now()); toastBusy = 1; toastNext._t = setTimeout(toastNext, 600); return; } // hold toasts while the title card is up
+  if (toastQ.length && ((!$("#modal").classList.contains("hidden") && $("#modalCard .title")) || (frzOn && !toastQ[0].now) || (fbOpen() && !/^⚠️/.test(toastQ[0].t)))) { toastQ.forEach(q => q.at = performance.now()); toastBusy = 1; toastNext._t = setTimeout(toastNext, 600); return; } // hold toasts while the title card is up
   let q; while ((q = toastQ.shift()) && performance.now() - q.at > 7000) {} // drop stale news
   if (!q) { toastBusy = 0; return; } toastBusy = 1; const t = q.t;
   const dur = Math.min(4200, 1500 + t.length * 38);
@@ -487,7 +499,7 @@ function renderHUD() {
   setTxt("#feedN", S.feed); setTxt("#cleanN", Math.round(S.clean) + "%");
   $("#cleanStat").classList.toggle("warn", S.clean < 30); $("#feedStat").classList.toggle("warn", S.feed < 2);
   const lb = $("#lockBtn"); setHTML(lb, S.locked ? `<span class="ai">🔓</span><span class="al">Let out</span>` : `<span class="ai">🔒</span><span class="al">Lock coop</span>`); lb.classList.toggle("locked", S.locked);
-  lb.classList.toggle("pulse", has("coop") && !S.locked && isNight() && S.hens.length > 0); lb.classList.toggle("pulse2", has("coop") && S.locked && !isNight() && S.hour >= 7 && S.hour < 18 && S.tut >= TUT.length);
+  lb.classList.toggle("pulse", has("coop") && !S.locked && isNight() && S.hens.length > 0); lb.classList.toggle("pulse2", has("coop") && S.locked && !isNight() && S.hour >= 7 && S.hour < DUSK - 1 && S.tut >= TUT.length);
   const sb = $("#sellBtn"), val = S.basket.reduce((a, e) => a + eggPrice(e), 0);
   setHTML(sb, `<span class="ai">💰</span><span class="al">Sell${S.basket.length ? ` <em>${val}🪙</em>` : ""}</span>`); sb.classList.toggle("pulse", S.basket.length >= 6);
   setHTML($("#speedBtn"), S.speed ? `<span class="ai">${S.speed > 1 ? "⏩" : "▶️"}</span><span class="al">Speed ${S.speed}×</span>` : `<span class="ai">⏸️</span><span class="al">Paused</span>`);
@@ -541,12 +553,13 @@ function nextHint() {
   if (coop !== undefined && isNight() && !S.locked && S.hens.length) return { t: "It's dark: tap the coop to lock it", tile: coop, urgent: 1 };
   if (wt !== undefined) return { t: "Water is low: tap the waterer", tile: wt, urgent: 1 };
   if (fd !== undefined) return S.feed > 0 ? { t: "Feeder is low: tap it to refill", tile: fd, urgent: 1 } : { t: "Out of feed: buy a bag in Shop → Supplies", act: () => { shopTab = "supplies"; shop(); }, el: "#shopBtn", urgent: 1 };
+  if (coop !== undefined && S.clean < 30) return { t: "Coop is filthy: buy pine shavings in Shop", act: () => { shopTab = "supplies"; shop(); }, el: "#shopBtn", urgent: 1 };
   if (S.ground.length) return { t: `Collect ${S.ground.length > 1 ? S.ground.length + " eggs" : "the egg"} in the yard`, tile: S.ground[0].tile };
   if (S.scraps.length && !(S.stats.scraps > 0) && hensOut() && !frenzies.size) return { t: "Kitchen scraps! Tap 🪣 Scraps to toss them to the hens", el: "#scrapBtn", act: scrapTray };
   if (S.feed < 2) return { t: "Feed is running low: Shop → Supplies", act: () => { shopTab = "supplies"; shop(); }, el: "#shopBtn" };
   if (S.clean < 40) return { t: "Coop is dirty: buy pine shavings in Supplies", act: () => { shopTab = "supplies"; shop(); }, el: "#shopBtn" };
   if (S.basket.length >= 6) return { t: `Sell your ${S.basket.length} eggs`, el: "#sellBtn" };
-  if (coop !== undefined && S.locked && !isNight() && S.hour >= 7 && S.hour < 18) return { t: "Morning! Tap the coop to let the hens out", tile: coop };
+  if (coop !== undefined && S.locked && !isNight() && S.hour >= 7 && S.hour < DUSK - 1) return { t: "Morning! Tap the coop to let the hens out", tile: coop };
   const g = nextGoal(); return g ? { t: `${g[1]} ${g[2]}\u00a0·\u00a0+${g[4]}🪙`, act: () => { gTab = "badges"; goalsModal(); }, goal: 1 } : { t: "🏆 All badges earned!", act: goalsModal };
 }
 let hint = null, coachSig = "";
@@ -601,7 +614,8 @@ window.settingsModal = () => {
   const sw = (on, fn, ic, label, sub) => `<button class="setrow" onclick="${fn}"><span class="si">${ic}</span><span class="st"><b>${label}</b>${sub ? `<small>${sub}</small>` : ""}</span><span class="switch ${on ? "on" : ""}"><i></i></span></button>`;
   modal(`<h2>⚙️ Settings</h2>
    <button class="setrow fbrow" onclick="feedback()"><span class="si">💬</span><span class="st"><b>Send feedback to Bill</b><small>Takes 10 seconds. He reads every one.</small></span><span class="chev">›</span></button>
-   ${sw(musicOn, "toggleMusic()", "🎵", "Music", "Ukulele & flute theme by day, music-box lullaby at night")}
+   <div class="mpick" role="radiogroup" aria-label="Music"><h3>🎵 Music</h3>${MUSIC_OPTS.map(([k, n, sub]) => `<button class="mopt ${musicPick === k ? "on" : ""}" role="radio" aria-checked="${musicPick === k}" onclick="pickMusic('${k}')"><span class="dot"></span><span class="st"><b>${n}</b><small>${k === "auto" ? `${sub}: ${MUSIC_NAME[autoTrack()]} right now` : sub}</small></span></button>`).join("")}
+   <p class="nowp">${nowPlaying()}</p><p class="hint">At night the music-box lullaby takes over (the two beats keep going, softer, while the hens sleep).</p></div>
    ${sw(soundOn, "toggleSound()", "🔊", "Farm sounds", "Clucks, egg pops, coins, rooster crow")}
    ${navigator.vibrate ? sw(vibOn, "toggleVib()", "📳", "Vibration", "A tiny buzz when you tap things") : ""}
    <p class="hint">Hearing nothing on iPhone? Turn the volume up with the side buttons, then tap 🎵.</p>
@@ -949,7 +963,7 @@ function tick() {
   const day = !isNight(), w = S.weather[1];
   const totalFeed = feeders.reduce((a, f) => a + f.lvl, 0), totalWater = waters.reduce((a, f) => a + f.lvl, 0);
   if (day) {
-    feeders.forEach(f => f.lvl = Math.max(0, f.lvl - 1.5 * S.hens.length / feeders.length));
+    feeders.forEach(f => f.lvl = Math.max(0, f.lvl - 1.1 * S.hens.length / feeders.length));
     waters.forEach(f => f.lvl = Math.max(0, f.lvl - (w === "Hot" ? 4 : 2) * S.hens.length / waters.length));
   }
   S.hens.forEach(h => {
@@ -959,7 +973,7 @@ function tick() {
     if (day && w === "Hot" && !has("tree")) { d -= 3; h.health -= 1; sayOnce("hot", "They're panting with their beaks open! <i>Tip: on hot days hens need shade and water.</i>", 1); }
     if (w === "Cold" && !has("coop")) { h.health -= 2; d -= 2; }
     if (w === "Rain" && !has("coop")) d -= 1;
-    if (day && S.locked && S.hour > 7 && S.hour < 19) { d -= 3; sayOnce("stuck", "The hens are banging on the door. Oh. It's daytime. <i>Tip: unlock the coop in the morning.</i>", 1); }
+    if (day && S.locked && S.hour > 7 && S.hour < DUSK - 1) { d -= 3; sayOnce("stuck", "The hens are banging on the door. Oh. It's daytime. <i>Tip: unlock the coop in the morning.</i>", 1); }
     if (has("coop") && S.clean < 30) { d -= 2; if (S.hour % 3 === 0) h.health -= 1; sayOnce("dirty", "Something smells... like a lot. <i>Tip: dirty bedding makes hens sick. Buy pine shavings in the Shop to clean the coop.</i>", 1); }
     if (totalFeed > 0 && totalWater > 0 && d > 0) h.health = Math.min(100, h.health + (h.health < 70 ? 3 : 1));
     h.happy = Math.max(10, Math.min(100, h.happy + d));
@@ -969,21 +983,22 @@ function tick() {
   if (S.hour === 8) { layEggs(); fillBucket(1, "breakfast"); }
   if ((S.hour === 9 || S.hour === 13 || S.hour === 16) && S.tut >= TUT.length && !threat) { if (!S.said.lonely && S.hens.length === 1 && S.day >= 2) sayOnce("lonely", `${S.hens[0].name} keeps following me around. I think she's lonely. <i>Tip: chickens are flock animals and shouldn't live alone. Most keepers start with at least 3 hens. Get her some friends in the 🛒 Shop.</i>`, 1);
     else if (!S.said.rooRatio && S.rooster && S.hens.length && S.hens.length < 5) sayOnce("rooRatio", `${S.rooster.name} is giving the girls a LOT of attention. They look tired of him. <i>Tip: with too few hens, a rooster over-mates them and they lose back feathers. Keepers aim for about 1 rooster per 8 to 10 hens.</i>`, 1);
-    else if (season()[1] === "Fall" && S.day >= 3) sayOnce("fallLight", "Fewer eggs lately. Did I do something wrong? <i>Tip: nope! Hens need about 14 hours of daylight to lay steadily. As fall days get shorter, laying slows down, and lots of hens molt.</i>", 1); }
-  if (S.hour === 18) fillBucket(2, "dinner");
+    else if (season()[1] === "Fall" && S.day >= 5 && S.clean >= 40) sayOnce("fallLight", "Fewer eggs lately. Did I do something wrong? <i>Tip: nope! Hens need about 14 hours of daylight to lay steadily. As fall days get shorter, laying slows down, and lots of hens molt.</i>", 1); }
+  if (S.hour === DUSK - 2) fillBucket(2, "dinner");
   if (S.hour === 14 && S.ground.length && !has("nest") && Math.random() < 0.15) { S.ground.shift(); sayOnce("eggeat", "One of the hens just ATE an egg. Her own egg! Is that allowed?? <i>Tip: egg eating can become a habit. Collect eggs often, use nest boxes, and keep calcium up so shells stay strong.</i>", 1); toast("🍳 A hen pecked open an egg and ate it!"); }
   if (S.hour === 7 && S.weather[1] === "Cold" && season()[1] === "Winter" && has("waterer") && Math.random() < 0.6) { tilesOf("waterer").forEach(i => { S.grid[i].lvl = 0; floatAt(i, "🧊 frozen!"); });
     sayOnce("frozen", "The water turned into a chicken popsicle. <i>Tip: in freezing weather, swap in fresh water a few times a day or use a heated waterer base.</i>", 1); }
-  if (S.hour === 20) { S.nightLock = has("coop"); S.nightHurt = false; }
-  if (isNight() && S.hour !== 20 && !S.locked) S.nightLock = false;
+  if (S.hour === DUSK) { S.nightLock = has("coop"); S.nightHurt = false; }
+  // Real flocks get locked in "after the last hen goes in", so allow about two hours after dusk before the night stops counting as safe
+  if ((S.hour >= Math.min(DUSK + 2, 22) || S.hour < 6) && !S.locked) S.nightLock = false;
   if (S.hour === 22 && S.locked) bump("lock");
   if (S.hour === 6 && has("coop")) { if (S.nightLock) S.stats.nightsLocked++; if (S.nightLock && !S.nightHurt) S.stats.safeNights++; }
-  if (S.hour === 7 && S.hens.length) { const r = mornBonus(); gain(r); toast(`☀️ Morning bonus +${r}🪙${S.stats.safeNights ? ` · 🛡️ ${S.stats.safeNights} safe nights so far` : ""}`); xp(2); }
-  if (S.hour === 14 && S.day === 1 && !S.rooster && !S.said.rooOffer) offerRooster();
+  if (S.hour === 7 && S.hens.length) { const r = mornBonus(); gain(r); toast(`☀️ Morning bonus +${r}🪙${S.stats.safeNights ? ` · 🛡️ ${S.stats.safeNights} safe night${S.stats.safeNights === 1 ? "" : "s"} so far` : ""}`); xp(2); }
+  if (S.hour === 14 && !S.rooster && !S.said.rooOffer && S.hens.length >= 5 && !grace()) offerRooster();
   threatHour();
-  if (S.hour === 20 && !S.locked) say(has("coop") ? (S.said.bed1 ? "Bedtime. The hens are on the roost. <i>Tap the coop to lock it.</i>" : (S.said.bed1 = 1, "The hens just... put themselves to bed at dusk? Icons. <i>Tip: chickens head to the roost on their own as it gets dark. Lock the coop behind them!</i>")) : "It's dark and my hens have nowhere to sleep. <i>Tip: build a coop.</i>", 1);
+  if (S.hour === DUSK && !S.locked) say(has("coop") ? bedLine() : "It's dark and my hens have nowhere to sleep. <i>Tip: build a coop.</i>", 1);
   if (S.hour === 5 && S.rooster) { sfx("crow"); if (!S.said.crow) { S.said.crow = 1; say(`${S.rooster.name} just screamed at 5am. Is he okay?? I guess my alarm clock is a bird now. <i>Tip: roosters crow at dawn (and whenever they feel like it). Hens lay without a rooster, but you need one for fertile eggs that hatch into chicks.</i>`, 1); } else toast(`🐓 ${S.rooster.name}: COCK-A-DOODLE-DOO!`); }
-  if (S.hour === 6 && S.locked) say("Morning! Time to unlock the coop and let the ladies out.", 1);
+  if (S.hour === 6 && S.locked && (S.day <= 3 || S.day % 3 === 0)) say(rot("morn", ["Morning! Time to unlock the coop and let the ladies out.", "Rise and shine. Somebody in there is already complaining about the door.", "Morning! I can hear them shuffling around. Let them out when you're ready.", "The sun's up and so are the hens. Coop door, please."]), 1);
   renderAll(); save();
 }
 function offerRooster() { if (!$("#modal").classList.contains("hidden")) return; S.said.rooOffer = 1;
@@ -993,7 +1008,7 @@ function offerRooster() { if (!$("#modal").classList.contains("hidden")) return;
 window.takeRocky = () => { sfx("crow"); S.rooster = { name: "Rocky", breed: "barnyard", x: 45, y: 45, flip: false }; closeModal(); toast("Welcome, Rocky the Barnyard rooster!");
   say("I own a rooster now. He looked me in the eye and I blinked first. <i>Tip: roosters protect the flock, and from now on your eggs are fertile, so you can hatch chicks.</i>", 1); renderAll(); wander(); };
 function newDay() {
-  S.day++; S.weather = WEATHER[rnd(SEASON_WX[season()[1]])];
+  S.day++; DUSK = duskHour(); S.weather = WEATHER[rnd(SEASON_WX[season()[1]])];
   if (HOL && HOL.k === "easter") { for (let k = 0; k < 3; k++) { const t = openTiles().filter(i => !S.grid[i]); if (t.length) S.ground.push({ tile: rnd(t), color: rnd(["blue", "green", "cream", "lightbrown"]), breed: "easter", hen: "the Easter hunt" }); } toast("🐰 Painted eggs are hidden around the yard!"); }
   S.event = S.day > 1 && Math.random() < 0.3 ? rnd(Object.keys(EVENTS)) : null;
   if (S.event) { toast(`${EVENTS[S.event][0]} ${EVENTS[S.event][1]}`); if (S.event === "bugs") for (let k = 0; k < 6; k++) spawnBug(); }
@@ -1012,7 +1027,7 @@ function newDay() {
   if (S.weather[1] === "Cold") sayOnce("cold", "It's freezing! Do chickens wear sweaters? <i>Tip: a draft-free coop keeps hens warm. No sweaters needed.</i>", 1);
 }
 function layEggs() {
-  const nests = tilesOf("nest");
+  const nests = tilesOf("nest"), before = S.ground.length;
   S.hens.forEach(h => {
     if (h.tummy === S.day) return; // tummy ache from a bad scrap: she skips one day, then she's fine
     const ok = h.health > 40 && h.happy > 35 && !(S.locked && !has("nest")) && !(h.cond && ["molt", "broody", "eggbound"].includes(h.cond.k));
@@ -1026,6 +1041,9 @@ function layEggs() {
     S.ground.push({ tile, color: gold ? "golden" : h.egg, breed: h.breed, hen: h.name, fertile: !!S.rooster, sire: S.rooster && S.rooster.breed });
     if (!nests.length) sayOnce("hidden", "I found an egg... in a bush?! <i>Tip: give them a nest box so they lay where you can find them.</i>", 1);
   });
+  // New farm: pullets at point of lay, so the first days always bring at least one egg
+  if (S.farm13 && S.day <= 3 && S.ground.length === before) { const h = S.hens.filter(h => !h.cond || !["molt", "broody", "eggbound"].includes(h.cond.k)).sort((a, b) => b.health - a.health)[0];
+    if (h) { const t = nests.length ? rnd(nests) : rnd([...Array(N).keys()].filter(i => !S.grid[i] && owned(i))); if (t !== undefined) S.ground.push({ tile: t, color: h.egg, breed: h.breed, hen: h.name, fertile: !!S.rooster, sire: S.rooster && S.rooster.breed }); } }
   if (S.ground.length) sayOnce("rooster", "WAIT. We got eggs but I don't have a rooster?! <i>Fact: hens lay eggs without a rooster. Roosters only matter if you want chicks.</i>", 1);
 }
 const mornBonus = () => 5 + Math.min(10, Math.floor(S.stats.safeNights / 2)) + (HOL && HOL.k === "thanks" ? 5 : 0);
@@ -1037,9 +1055,26 @@ const mornBonus = () => 5 + Math.min(10, Math.floor(S.stats.safeNights / 2)) + (
    Each file = 0.5 s pre-roll + one loop + 0.5 s post-roll, so looping between loopStart/loopEnd is seamless even with
    MP3 encoder delay. Played through an AudioBufferSourceNode (sample-accurate loop); <audio> fallback if decoding fails. */
 let soundOn = false; try { soundOn = localStorage.getItem("coopcity-sound") === "1"; } catch (e) {}
-let musicOn = true; try { musicOn = localStorage.getItem("coopcity-music") !== "0"; } catch (e) {}
+// Music choice (Settings → Music). Stored outside the farm save so 🌱 New farm keeps it. Legacy "1"/"0" = auto/off.
+const MUSIC_OPTS = [["auto", "Auto", "Follows the calendar"], ["day", "Coup City Theme", "The original ukulele & flute theme"], ["spring", "Spring Morning", "Bright and plucky"], ["fall", "Harvest Lane", "Cozy and acoustic"], ["halloween", "Pumpkin Parade", "Playful tiptoe spooky"], ["ironbeak", "Iron Beak", "Dusty 90s boom-bap with real clucks"], ["lowrider", "Lowrider Roost", "Laid-back 90s G-funk"], ["off", "Off", "No music (farm sounds keep their own switch)"]];
+const MUSIC_NAME = { day: "Coup City Theme", spring: "Spring Morning", fall: "Harvest Lane", halloween: "Pumpkin Parade", ironbeak: "Iron Beak", lowrider: "Lowrider Roost", night: "Night lullaby" };
+// The two beats are a "radio" pick, not part of the farm's day/night score, so they keep playing after dusk, just quieter
+// (hens are asleep). Auto and the four farm themes hand over to the lullaby at dusk, as before.
+const BEATS = { ironbeak: 1, lowrider: 1 }, BEAT_NIGHT = 0.5;
+let musicPick = "auto"; try { const v = localStorage.getItem("coopcity-music"); musicPick = v === "0" ? "off" : MUSIC_OPTS.some(o => o[0] === v) ? v : "auto"; } catch (e) {}
+let musicOn = musicPick !== "off", musDate = null; // musDate: test hook to mock the calendar
+function autoTrack(d = musDate || new Date()) { const m = d.getMonth() + 1, day = d.getDate(), md = m * 100 + day;
+  if (md >= 1020 && md <= 1031) return "halloween";
+  if (md >= 320 && md <= 620) return "spring";
+  if (md >= 922 && md <= 1220) return "fall";
+  return "day"; }
+const dayPick = () => musicPick === "auto" || musicPick === "off" ? autoTrack() : musicPick;
+let curDay = dayPick(), musFade = 3;
 const MUSIC_VOL = 0.5; // mastered at about -17 LUFS, so this sits well under the farm sounds
-const TRACKS = { day: { src: "music/coup-city-day.mp3?v=10", a: 0.5, b: 0.5 + 71.1111 }, night: { src: "music/coup-city-night.mp3?v=10", a: 0.5, b: 0.5 + 73.8461 } };
+const TRACKS = { day: { src: "music/coup-city-day.mp3?v=10", a: 0.5, b: 0.5 + 71.1111 }, night: { src: "music/coup-city-night.mp3?v=10", a: 0.5, b: 0.5 + 73.8461 },
+  spring: { src: "music/coup-city-spring.mp3?v=13", a: 0.5, b: 0.5 + 76.8 }, fall: { src: "music/coup-city-fall.mp3?v=13", a: 0.5, b: 0.5 + 83.478261 }, halloween: { src: "music/coup-city-halloween.mp3?v=13", a: 0.5, b: 0.5 + 68.571429 },
+  // s = where playback starts. The beats play their 8-bar intro once (from 0 s), then loop the 32-bar body a..b.
+  ironbeak: { src: "music/coup-city-ironbeak.mp3?v=13", s: 0, a: 21.333333, b: 106.666667 }, lowrider: { src: "music/coup-city-lowrider.mp3?v=13", s: 0, a: 20.869565, b: 104.347826 } };
 for (const k in TRACKS) Object.assign(TRACKS[k], { bytes: null, buf: null, src0: null, gain: null, el: null, want: 0, offAt: 0, err: 0 });
 let AC = null, master, sfxBus, noiseBuf, musTimer = 0;
 function fetchTrack(k) { const T = TRACKS[k]; if (T.bytes || T.loading) return; T.loading = 1;
@@ -1068,21 +1103,30 @@ function cluck(bus, t, vol, big) { const o = AC.createOscillator(), f = AC.creat
   const a = big ? 620 : 540; o.frequency.setValueAtTime(a, t); o.frequency.exponentialRampToValueAtTime(a * (big ? 2.1 : 1.8), t + 0.035); o.frequency.exponentialRampToValueAtTime(a * 1.15, t + (big ? 0.16 : 0.08));
   f.type = "bandpass"; f.frequency.value = 1300; f.Q.value = 2.5; env(g, t, 0.003, vol, big ? 0.17 : 0.08); o.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.22); noise(bus, t, 0.025, vol * 0.6, 2400, "bandpass"); }
 const musicNight = () => !!(S && S.started && typeof isNight === "function" && isNight());
-function startTrack(k) { const T = TRACKS[k]; if (T.src0) return;
-  if (T.buf) { const s = AC.createBufferSource(); s.buffer = T.buf; s.loop = true; s.loopStart = T.a; s.loopEnd = Math.min(T.b, T.buf.duration - 0.01); s.connect(T.gain); s.start(AC.currentTime + 0.02, T.a); T.src0 = s; return; }
+function startTrack(k, at) { const T = TRACKS[k]; if (T.src0) return;
+  if (T.buf) { const s = AC.createBufferSource(); s.buffer = T.buf; s.loop = true; s.loopStart = T.a; s.loopEnd = Math.min(T.b, T.buf.duration - 0.01); s.connect(T.gain); T.t0 = at || AC.currentTime + 0.02; s.start(T.t0, T.s === undefined ? T.a : T.s); T.src0 = s; return; }
   if (T.err) { // fallback: plain <audio> element (tiny loop gap is acceptable here)
     if (!T.el) { T.el = new Audio(T.src); T.el.loop = true; T.el.setAttribute("playsinline", ""); T.el.preload = "auto"; }
     T.el.volume = MUSIC_VOL; const p = T.el.play(); if (p && p.catch) p.catch(() => {}); T.src0 = T.el; } }
 function stopTrack(k) { const T = TRACKS[k]; if (!T.src0) return; try { T.src0 === T.el ? T.el.pause() : T.src0.stop(); } catch (e) {} T.src0 = null; }
 function musicTick() {
   if (!AC || AC.state !== "running") return; const now = AC.currentTime, night = musicNight();
-  if (TRACKS.day.buf && !TRACKS.night.bytes) fetchTrack("night"); // warm the lullaby so dusk crossfades instantly
-  for (const k in TRACKS) { const T = TRACKS[k], want = musicOn && (k === "night") === night ? 1 : 0;
+  // Lazy loading: only the track in use, plus the lullaby within an hour of dusk so it crossfades in on time
+  if (musicOn && !(BEATS[curDay] && musicPick === curDay) && S && S.started && !night && typeof DUSK === "number" && S.hour >= DUSK - 1) fetchTrack("night");
+  if (musicOn && !night && musicPick === "auto" && !(curDay === autoTrack())) { const nk = autoTrack(), T = TRACKS[curDay], N = TRACKS[nk];
+    if (!T.src0 || !T.want) curDay = nk; // nothing audible yet: just switch
+    else { fetchTrack(nk); decodeTrack(nk); // Auto changes over only at the loop end, never mid-phrase
+      if (N.buf && T.buf && T.src0 !== T.el) { const L = T.b - T.a, rem = L - ((now - T.t0) % L);
+        if (rem < 0.3) { const at = now + rem; startTrack(nk, at); N.gain.gain.cancelScheduledValues(now); N.gain.gain.setValueAtTime(0, now); N.gain.gain.setValueAtTime(1, at); N.want = 1;
+          T.gain.gain.cancelScheduledValues(now); T.gain.gain.setValueAtTime(T.gain.gain.value, now); T.gain.gain.setValueAtTime(0, at); T.want = 0; T.offAt = at + 0.05; curDay = nk; } }
+      else if (N.buf && T.src0 === T.el) curDay = nk; } }
+  const beat = BEATS[curDay] && musicPick === curDay, wantKey = !musicOn ? null : night && !beat ? "night" : curDay;
+  for (const k in TRACKS) { const T = TRACKS[k], want = k === wantKey ? (night && beat ? BEAT_NIGHT : 1) : 0;
     if (want) { fetchTrack(k); decodeTrack(k); startTrack(k); }
-    if (want !== T.want) { const fade = musicOn ? 3 : 0.6; T.gain.gain.cancelScheduledValues(now); T.gain.gain.setValueAtTime(T.gain.gain.value, now); T.gain.gain.linearRampToValueAtTime(want, now + fade); T.want = want; T.offAt = now + fade + 0.1; if (T.el) T.el.volume = want ? MUSIC_VOL : 0; }
+    if (want !== T.want) { const fade = musicOn ? musFade : 0.6; T.gain.gain.cancelScheduledValues(now); T.gain.gain.setValueAtTime(T.gain.gain.value, now); T.gain.gain.linearRampToValueAtTime(want, now + fade); T.want = want; T.offAt = now + fade + 0.1; if (T.el) T.el.volume = MUSIC_VOL * want; }
     if (!want && T.src0 && now > T.offAt) stopTrack(k);
     if (want && T.src0 === T.el && T.el && T.el.paused && !document.hidden) { const p = T.el.play(); if (p && p.catch) p.catch(() => {}); } } }
-if (musicOn) fetchTrack("day"); // prefetch the day theme (about 1.1 MB) while the title card is up
+if (musicOn) fetchTrack(curDay); // prefetch only the daytime track in use (about 1.1-1.4 MB) while the title card is up
 /* iPhone audio. Three things make Web Audio reliable on iOS Safari:
    1) create/resume the AudioContext synchronously inside a real gesture (touchend/click) and play a 1-sample buffer;
    2) the ring/silent switch mutes Web Audio unless the page's audio session is "playback". iOS 17+ exposes
@@ -1130,10 +1174,17 @@ const beep = sfx;
 function audioBtns() { const m = $("#musicBtn"), x = $("#sfxBtn");
   if (m) { m.classList.toggle("off", !musicOn); m.setAttribute("aria-pressed", musicOn); m.setAttribute("aria-label", musicOn ? "Music on. Tap to mute" : "Music off. Tap to play"); }
   if (x) { x.textContent = soundOn ? "🔊" : "🔇"; x.classList.toggle("off", !soundOn); x.setAttribute("aria-pressed", soundOn); x.setAttribute("aria-label", soundOn ? "Farm sounds on" : "Farm sounds off"); }
-  const tp = $("#titleMusic"); if (tp) { tp.innerHTML = `🎵 Music: <b>${musicOn ? "On" : "Off"}</b>`; tp.classList.toggle("off", !musicOn); }
+  const tp = $("#titleMusic"); if (tp) { tp.innerHTML = `🎵 Music: <b>${musicOn ? (musicPick === "auto" ? "On" : MUSIC_NAME[musicPick]) : "Off"}</b>`; tp.classList.toggle("off", !musicOn); }
   if (keepAlive && !(musicOn || soundOn)) keepAlive.pause(); }
 const reopenSettings = () => { const c = $("#modalCard"); if (!$("#modal").classList.contains("hidden") && c.querySelector(".setrow")) settingsModal(); };
-window.toggleMusic = () => { musicOn = !musicOn; try { localStorage.setItem("coopcity-music", musicOn ? "1" : "0"); } catch (e) {} audioStart(); buzz(10); toast(musicOn ? "🎵 Music on" : "🎵 Music off", 1); audioBtns(); reopenSettings(); };
+let musicLast = "auto"; try { const v = localStorage.getItem("coopcity-musiclast"); if (MUSIC_OPTS.some(o => o[0] === v && v !== "off")) musicLast = v; } catch (e) {}
+function setPick(k) { musicPick = k; musicOn = k !== "off"; if (musicOn) { musicLast = k; curDay = dayPick(); }
+  try { localStorage.setItem("coopcity-music", k); if (musicOn) localStorage.setItem("coopcity-musiclast", k); } catch (e) {} }
+// Settings picker: plays the choice right away with a short crossfade so players can audition it
+window.pickMusic = k => { if (!MUSIC_OPTS.some(o => o[0] === k)) return; musFade = 1.5; setPick(k); setTimeout(() => { musFade = 3; }, 2500); audioStart(); buzz(10); audioBtns();
+  const c = $("#modalCard"); if (c && c.querySelector(".mpick")) { const sc = [c, ...c.querySelectorAll("*")].filter(e => e.scrollTop).map(e => [e, e.scrollTop]); settingsModal(); sc.forEach(([e, t]) => { const n = e === c ? c : null; if (n) n.scrollTop = t; }); const mb = $("#modalCard .mopt.on"); if (mb && mb.scrollIntoView) mb.scrollIntoView({ block: "nearest" }); } };
+const nowPlaying = () => !musicOn ? "Music is off" : `♪ Now playing: ${MUSIC_NAME[musicNight() && !BEATS[curDay] ? "night" : curDay]}${musicPick === "auto" && !musicNight() ? " (Auto)" : ""}`;
+window.toggleMusic = () => { setPick(musicOn ? "off" : musicLast); audioStart(); buzz(10); toast(musicOn ? "🎵 Music on" : "🎵 Music off", 1); audioBtns(); reopenSettings(); };
 window.toggleSound = () => { soundOn = !soundOn; try { localStorage.setItem("coopcity-sound", soundOn ? "1" : "0"); } catch (e) {} audioStart(); buzz(10); sfx("cluck"); toast(soundOn ? "🔊 Farm sounds on" : "🔇 Farm sounds off", 1); audioBtns(); reopenSettings(); };
 function musicTip() { let seen = false; try { seen = localStorage.getItem("coopcity-mtip") === "1"; localStorage.setItem("coopcity-mtip", "1"); } catch (e) {}
   if (seen || !musicOn) return; setTimeout(() => { toast("🎵 Music on. Tap the 🎵 button to mute.", 1); const d = $("#dock"); d.classList.add("hey"); setTimeout(() => d.classList.remove("hey"), 4200); }, 900); }
@@ -1156,11 +1207,12 @@ const GOALS = [
   ["lock1", "🔒", "Lock the coop for a whole night", () => S.stats.nightsLocked >= 1, 8],
   ["scraps1", "🥬", "Toss kitchen scraps to the hens", () => S.stats.scraps >= 1, 6],
   ["nest", "🪺", "Build a nest box", () => has("nest"), 6],
-  ["roo", "🐓", "Get a rooster", () => !!S.rooster, 8],
   ["eggs10", "🧺", "Collect 10 eggs", () => S.lifetime >= 10, 10],
   ["def1", "🛡️", "Buy a predator defense", () => Object.keys(S.def).length >= 1, 8],
   ["big", "🏠", "Upgrade to the Big coop", () => S.coopLvl >= 1, 15],
-  ["hens4", "🐔", "Raise a flock of 4 hens", () => S.hens.length >= 4, 12],
+  ["hens5", "🐔", "Grow your flock to 5 hens", () => S.hens.length >= 5, 12],
+  ["roo", "🐓", "Get a rooster (5+ hens)", () => !!S.rooster, 8],
+
   ["care1", "🩹", "Nurse a hen back to health", () => S.stats.cared >= 1, 10],
   ["colors3", "🌈", "Collect 3 egg colors", () => Object.keys(S.collection).length >= 3, 12],
   ["streak3", "🛡️", "3 safe nights", () => S.stats.safeNights >= 3, 15],
@@ -1220,10 +1272,12 @@ function realismDay() {
   S.hens.forEach(h => { if (!h.cond) return; h.cond.days--; if (h.cond.days <= 0) { const k = h.cond.k; h.cond = null;
     if (k === "molt") toast(`🪶 ${h.name} finished molting. Shiny new feathers!`); if (k === "broody") toast(`${h.name} gave up on being broody.`); if (k === "newbie") toast(`${h.name} found her place in the pecking order.`); } });
   const se = season()[1], free = S.hens.filter(h => !h.cond); if (!free.length) return;
-  if (se === "Fall") { const yr = new Date().getFullYear(), h = free.find(h => h.molted !== yr); if (h && Math.random() < 0.35) { h.molted = yr; setCond(h, "molt", 4); return; } }
+  // Pullets usually skip their first fall molt, and a new hen gets a week to settle in before any trouble
+  const settled = free.filter(h => !h.got || S.day - h.got >= 7);
+  if (se === "Fall") { const yr = new Date().getFullYear(), h = settled.find(h => h.molted !== yr); if (h && Math.random() < 0.35) { h.molted = yr; setCond(h, "molt", 4); return; } }
   if (se === "Winter" && !S.said.winter) sayOnce("winter", "It's dark at like 5pm. The hens are on strike. <i>Tip: hens need about 14-16 hours of daylight to lay steadily, so laying slows down in winter.</i>", 1);
-  if (Math.random() > 0.3) return;
-  const h = rnd(free), r = Math.random();
+  if (Math.random() > 0.3 || grace() || !settled.length) return;
+  const h = rnd(settled), r = Math.random();
   if ((se === "Spring" || se === "Summer") && !isOld(h) && r < 0.35) setCond(h, "broody", 5);
   else if (r < 0.65 && (S.clean < 60 || !has("run") || Math.random() < 0.4)) setCond(h, "mites", 9);
   else if (r < 0.82) setCond(h, "eggbound", 2);
@@ -1280,14 +1334,21 @@ window.buyDef = k => { const d = DEF.find(x => x[0] === k); if (S.def[k] || S.co
   S.coins -= d[3]; coinPop(-d[3]); S.def[k] = S.day; toast(`${d[1]} ${d[2]} installed!`); say(`${rnd(["I installed it myself. Only bled a little.", "The guy at the farm store called me 'bud.' I've never felt more rural.", "Fort Cluck is getting serious."])} <i>Tip: ${d[5]}</i>`, 1); shop(); renderAll(); };
 const roo = () => S.rooster ? ROOS[S.rooster.breed].guard : null;
 let threat = null;
+// Rotate Charlie's daily lines so the same sentence doesn't greet you every day
+function rot(k, lines) { S.said.rot = S.said.rot || {}; const i = S.said.rot[k] = ((S.said.rot[k] ?? -1) + 1) % lines.length; return lines[i]; }
+function bedLine() { const t = hr12(DUSK);
+  if (!S.said.bed1) { S.said.bed1 = 1; return `The hens just... put themselves to bed at ${t}? Icons. <i>Tip: chickens head to the roost on their own as it gets dark, so bedtime moves with the seasons (about 5pm in midwinter, 9pm in midsummer). Lock the coop behind them!</i>`; }
+  return rot("bed", [`Bedtime. The hens are on the roost. <i>Tap the coop to lock it.</i>`, `It's getting dark and everyone's lined up on the roost. <i>Lock the coop!</i>`, `Sun's down, hens are in. <i>Tap the coop to lock the door.</i>`]); }
 const hensOut = () => !isNight() && !(S.locked && has("coop"));
 function coverSpot() { const t = [...tilesOf("tree"), ...tilesOf("run"), ...tilesOf("coop")]; if (!t.length) return null; const p = tilePos(rnd(t)); p.x += Math.random() * 5; p.y += Math.random() * 4; return p; }
 function runForCover(ms, only) { frenzies.forEach(f => endFrenzy(f, "abort")); const now = performance.now(); (only || S.hens).forEach(h => { const p = coverSpot(); if (!p) return; h.flip = p.x < h.x; h.x = p.x; h.y = p.y; h.busy = true; h.run = true; h.next = now + ms;
   setTimeout(() => { h.busy = false; h.run = false; }, ms); }); if (S.rooster) { S.rooster.run = true; setTimeout(() => S.rooster && (S.rooster.run = false), 2000); } renderHens(); }
 const pickW = o => { const e = Object.entries(o), tot = e.reduce((a, [, v]) => a + (v.w || v[2]), 0); let r = Math.random() * tot; for (const [k, v] of e) { r -= v.w || v[2]; if (r <= 0) return k; } return e[0][0]; };
+const grace = () => S.farm13 && S.day <= 3;
+const recentSky = h => h.skyHit && S.day - h.skyHit < 3;
 function dayThreat(kind, tut) {
   if (threat || !S.hens.length || !hensOut()) return;
-  const T = kind === "fox" ? FOX_DUSK : DAY_T[kind], target = rnd(S.hens), fromL = Math.random() < 0.5, sx = target.x + (fromL ? -62 : 62);
+  const T = kind === "fox" ? FOX_DUSK : DAY_T[kind], fresh = S.hens.filter(h => !recentSky(h)), target = rnd(fresh.length ? fresh : S.hens), fromL = Math.random() < 0.5, sx = target.x + (fromL ? -62 : 62);
   const ty = T.sky ? Math.max(0, target.y - 16) : target.y;
   const a = actor(`<span>${T.e}</span>`, (T.sky ? "sky" : "ground") + (T.big ? " big" : ""), sx, T.sky ? -12 : ty, T.sky ? 45 : 30, { sky: T.sky });
   a.tx = target.x - 2; a.ty = ty; panTo(target.x + 6, target.y + 4); // bring the action into view
@@ -1316,12 +1377,14 @@ function resolveDay() {
   else if (t.tut) msg = `The ${nm} flew off. Next time, tap it fast!`;
   else { let p = T.hit; if (t.alarm) p *= 0.35; if (target.pers === "shy") p *= 0.5;
     if (T.sky) { if (has("run")) p *= 0.5; if (has("tree")) p *= 0.7; } else { p *= 1 - 0.5 * Math.min(1, tilesOf("fence").length / 12); if (S.def.efence) p *= 0.2; }
-    if (S.hens.includes(target) && Math.random() < p) { hurt(target, Math.min(10, Math.round(T.dmg / 3))); for (let i = 0; i < 5; i++) particle("🪶", target.x + 7, target.y + 4, 1); msg = `The ${nm} swiped at ${target.name}! She lost a few feathers and is hiding, but she'll be fine.`; S.nightHurt = true; beep("warn"); }
+    if (T.sky && (recentSky(target) || S.skyHitDay === S.day)) p = 0; // she remembers: hens that were just swiped dive for cover, and at most one hawk hit a day
+    if (S.hens.includes(target) && Math.random() < p) { if (T.sky) { target.skyHit = S.day; S.skyHitDay = S.day; } hurt(target, Math.min(10, Math.round(T.dmg / 3))); for (let i = 0; i < 5; i++) particle("🪶", target.x + 7, target.y + 4, 1); msg = `The ${nm} swiped at ${target.name}! She lost a few feathers and is hiding, but she'll be fine.`; S.nightHurt = true; beep("warn"); }
     else msg = t.alarm ? `The hens hid in time. The ${nm} gave up.` : `The ${nm} missed and left.`; }
   toast(msg);
   const ex = t.sx; t.a.tx = ex; t.a.ty = T.sky ? -14 : t.a.y; t.a.speed *= 1.3; t.a.onArrive = () => dropActor(t.a);
   if (t.sh) { t.sh.tx = ex; t.sh.onArrive = () => dropActor(t.sh); }
   threat = null; renderAll();
+  setTimeout(() => { if (!threat && !pan.drag && !ptrs.size) recenter(); }, 1800); // drift back home so the yard isn't left showing empty grass
 }
 function nightThreat(kind) {
   const [e, name, , line, tip] = NIGHT_T[kind], D = S.def, coop = tilesOf("coop")[0], safe = coop !== undefined && S.locked;
@@ -1335,14 +1398,15 @@ function nightThreat(kind) {
   else if (["possum", "skunk", "raccoon"].includes(kind) && D.motion && R() < 0.45) msg = `The motion light flicked on. The ${name.toLowerCase()} bolted.`;
   else if (mammal && D.goose && R() < 0.3) msg = `The goose honked the ${name.toLowerCase()} right out of the yard. 🪿`;
   else switch (kind) {
-    case "raccoon": if (safe && (D.latch || R() < 0.75)) msg = "A raccoon rattled the coop latch. It held!";
+    case "raccoon": if (safe && (D.latch || R() < 0.85)) msg = "A raccoon rattled the coop latch. It held!";
       else { const k = eatEggs(9); msg = `A raccoon ${safe ? "opened the latch and " : ""}ruffled ${harm(35)} (she hid and will be fine)${k ? " and ate the eggs" : ""}!`; ok = false; } break;
     case "possum": if (!S.ground.length) msg = "A possum sniffed around, found no eggs, and waddled off."; else { const k = eatEggs(3); msg = `A possum ate ${k} egg${k > 1 ? "s" : ""} you left out!`; ok = false; } break;
     case "snake": if (D.hwcloth) msg = "A snake couldn't squeeze through the hardware cloth."; else if (!S.ground.length) msg = "A snake slithered through, found no eggs, and left."; else { const k = eatEggs(2); msg = `A snake swallowed ${k} egg${k > 1 ? "s" : ""}!`; ok = false; } break;
     case "rat": if (D.feedbin) msg = "Rats tried the feed bin. Metal wins."; else if (S.feed > 0) { S.feed = Math.max(0, S.feed - 2); msg = "Rats chewed into the feed bag! -2 scoops."; ok = false; } else msg = "Rats found an empty feed bag. Ha."; break;
     case "coyote": if (safe) msg = "A coyote circled the locked coop and gave up."; else if (D.efence && R() < 0.9) msg = "A coyote touched the electric netting. Yelp! Gone."; else if (R() < fenceF * 0.5) msg = "A coyote couldn't get past the fence."; else { msg = `A coyote got into the yard and ruffled ${harm(40)} (she hid and will be fine)!`; ok = false; } break;
-    case "fox": if (safe && (D.hwcloth || R() < 0.8)) msg = `A fox tried digging under the coop${D.hwcloth ? " and hit hardware cloth" : ""}. Foiled!`; else if (!safe && D.efence && R() < 0.9) msg = "A fox hit the electric netting and ran off."; else { msg = `A fox ${safe ? "dug under the coop and " : ""}ruffled ${harm(30)} (she hid and will be fine)!`; ok = false; } break;
-    case "owl": if (safe) msg = "An owl hooted from the tree. Everyone's locked inside."; else { msg = `An owl swooped at ${harm(30)}, who was sleeping outside! She hid under a bush and is okay.`; ok = false; } break;
+    case "fox": if (safe && (D.hwcloth || R() < 0.9)) msg = `A fox tried digging under the coop${D.hwcloth ? " and hit hardware cloth" : ""}. Foiled!`; else if (!safe && D.efence && R() < 0.9) msg = "A fox hit the electric netting and ran off."; else { msg = `A fox ${safe ? "dug under the coop and " : ""}ruffled ${harm(30)} (she hid and will be fine)!`; ok = false; } break;
+    case "owl": if (safe) msg = "An owl hooted from the tree. Everyone's locked inside.";
+      else if (coop !== undefined) msg = "An owl hooted from the tree. The hens were roosting inside the coop, so it moved on. (Still, lock up!)"; else { msg = `An owl swooped at ${harm(30)}, who was sleeping outside! She hid under a bush and is okay.`; ok = false; } break;
     case "skunk": { const k = eatEggs(2); S.hens.forEach(h => h.happy = Math.max(0, h.happy - 8)); msg = `A skunk ${k ? `ate ${k} egg${k > 1 ? "s" : ""} and ` : ""}stank up the yard. 🤢`; ok = !k; } break;
     case "weasel": if (D.hwcloth) msg = "A weasel couldn't fit through the 1/2-inch hardware cloth."; else if (safe && R() < 0.5) msg = "A weasel searched for a gap and didn't find one tonight."; else { msg = `A weasel squeezed in and ruffled ${harm(30)} (she hid and will be fine)!`; ok = false; } break;
   }
@@ -1360,9 +1424,13 @@ function predator(emoji, i, msg) { const p = tilePos(i ?? 0); const a = actor(`<
 function threatHour() {
   const h = S.hour; if (S.tut < TUT.length) return; // no predators until the player has learned the basics
   if (!$("#modal").classList.contains("hidden") && h < 20) return; // never ambush someone reading a menu
-  if (h === 11 && S.day === 1 && !S.said.tuthawk && !S.said.tutHawkDone && hensOut()) { S.said.tuthawk = 1; return dayThreat("hawk"); }
-  if (h >= 9 && h <= 16 && S.day > 1 && Math.random() < 0.12) return dayThreat(pickW(DAY_T));
-  if ((h === 18 || h === 19) && Math.random() < 0.15) return dayThreat("fox");
+  if (h === 11 && S.day === 1 && !S.said.tuthawk && !S.said.tutHawkDone && hensOut()) { S.said.tuthawk = 1; return dayThreat("hawk", true); }
+  if (grace()) { // first 3 days of a new farm: predators only scout, nobody gets hurt
+    if (h === 22 && !S.locked && has("coop") && S.said.scout !== S.day) { S.said.scout = S.day; say(rot("scout", ["I heard something rustling by the coop. Probably nothing. Probably. <i>Tip: raccoons scout a yard before they try a coop. Lock it at night!</i>", "Two little eyes by the fence just now. Gone again. <i>Tip: lock the coop at night, before something gets brave.</i>", "Something sniffed around the coop door. <i>Tip: night predators check for an open coop. Tap the coop to lock it.</i>"]), 1); }
+    return; }
+  const fresh = S.threatDay !== S.day; // at most one daytime scare a day: a moment, not a siege
+  if (fresh && h >= 9 && h <= 16 && S.day > 1 && Math.random() < 0.08) { S.threatDay = S.day; return dayThreat(pickW(DAY_T)); }
+  if (fresh && (h === DUSK - 2 || h === DUSK - 1) && Math.random() < 0.15) { S.threatDay = S.day; return dayThreat("fox"); }
   if ((h === 22 || h === 2) && S.hens.length && Math.random() < 0.55) { let k = pickW(NIGHT_T); if (k === "snake" && season()[1] === "Winter") k = "rat"; nightThreat(k); }
 }
 
@@ -1416,7 +1484,7 @@ async function shareOut(title, text, url) {
   if (navigator.share) { try { await navigator.share({ title, text, url }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
   try { await navigator.clipboard.writeText(`${text} ${url}`); toast("Link copied! Paste it to a friend."); } catch (e) { modal(`<h2>Copy this link</h2><textarea class="code" readonly onclick="this.select()">${esc(url)}</textarea><button class="act big" onclick="closeModal()">Done</button>`); }
 }
-function farmSnap() { return { v: 1, n: S.player || "A city farmer", d: S.day, l: S.lvl, c: S.coopLvl, a: S.land.length, e: S.lifetime, g: Object.keys(S.goals).length,
+function farmSnap() { return { v: 1, n: S.player || "A city farmer", d: S.day, l: S.lvl, c: S.coopLvl, a: S.land.length, e: S.lifetime, g: GOALS.filter(g => S.goals[g[0]]).length,
   h: S.hens.slice(0, 12).map(h => [h.breed, h.name.slice(0, 32), h.pers]), r: S.rooster ? [S.rooster.breed, S.rooster.name.slice(0, 32)] : 0, k: S.collection }; }
 window.shareFarm = () => shareOut("My Coup City farm", `Come visit my chicken farm in Coup City! 🐔`, `${baseURL()}#visit=${mkCode("CCV", farmSnap())}`);
 function visitModal(f) {
@@ -1470,7 +1538,7 @@ function goalsModal() { if (!gTabs.includes(gTab)) gTab = "today";
     + `<p style="font-size:13px">Finish all 3 for a +10🪙 sweep bonus. New quests every game day.</p>`
     + `<p>☀️ Morning bonus: <b>${mornBonus()}🪙</b> (grows with every safe night) · 🛡️ Safe nights: <b>${S.stats.safeNights}</b><br>📆 Days you've farmed: <b>${S.login.days || 1}</b>. Nothing here ever resets, and time pauses when you leave.</p>`
     + (S.event ? `<p class="demo">${EVENTS[S.event].join(" ")}</p>` : "") + (HOL ? `<p class="demo">${HOL.name}: ${HOL.line}</p>` : "") + `<p style="font-size:13px">${realSeason()[0]} It's ${realSeason()[1].toLowerCase()} (follows your real calendar).</p>`;
-  else if (gTab === "badges") body = `<p>${Object.keys(S.goals).length}/${GOALS.length} badges</p><div class="badges">` + GOALS.map(([k, ic, t, , r]) => `<div class="bdg ${S.goals[k] ? "got" : ""}"><span>${S.goals[k] ? ic : "🔒"}</span><small>${t}</small><em>+${r}🪙</em></div>`).join("") + `</div>`;
+  else if (gTab === "badges") body = `<p>${GOALS.filter(g => S.goals[g[0]]).length}/${GOALS.length} badges</p><div class="badges">` + GOALS.map(([k, ic, t, , r]) => `<div class="bdg ${S.goals[k] ? "got" : ""}"><span>${S.goals[k] ? ic : "🔒"}</span><small>${t}</small><em>+${r}🪙</em></div>`).join("") + `</div>`;
   else if (gTab === "book") { const all = Object.keys(CH), seen = all.filter(k => S.seen[k]).length, cols = [...Object.keys(EGG_COLORS)];
     body = `<p><b>Breeds</b> ${seen}/${all.length}</p><div class="book">` + all.map(k => `<div class="${S.seen[k] ? "" : "unseen"}">${henSVG(k)}<small>${S.seen[k] ? CH[k].name : "???"}</small></div>`).join("") + `</div>`
       + `<p><b>Egg colors</b> ${cols.filter(c => S.collection[c]).length}/${cols.length}</p><div class="book eggs">` + cols.map(c => `<div class="${S.collection[c] ? "" : "unseen"}">${eggSVG(c)}<small>${S.collection[c] ? `${EGG_COLORS[c].label} ×${S.collection[c]}` : "???"}</small></div>`).join("") + `</div>`; }
@@ -1498,7 +1566,8 @@ window.resetGame = from => { resetFrom = from || "settings"; const sv = S && S.s
 window.keepFarm = () => resetFrom === "title" ? title() : resetFrom === "farm" ? (gTab = "farm", goalsModal()) : settingsModal();
 window.doReset = () => { // stop everything first so pagehide/visibilitychange can't write the old farm back
   try { stopLoop(); } catch (e) {} clearTimeout(timer); clearInterval(wtimer); if (S) S.started = false;
-  try { ["coopcity-save-v1", "coopcity-fbask", "coopcity-fbsent"].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  try { ["coopcity-save-v1", "coopcity-fbask", "coopcity-fbsent", "coopcity-fbdraft"].forEach(k => localStorage.removeItem(k));
+    const last = JSON.parse(localStorage.getItem("coopcity-fblast") || "null"); if (last) localStorage.setItem("coopcity-fblast", JSON.stringify({ sig: "", at: last.at || 0 })); } catch (e) {} // keep only the rate-limit time
   try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} location.reload(); };
 
 /* ---------- INPUT ---------- */
@@ -1586,8 +1655,8 @@ function shop() {
   if (shopTab === "hens") {
     body = Object.entries(CH).filter(([k, b]) => !b.hatchOnly).map(([k, b]) => `<div class="row">${henSVG(k)}<div class="t"><b>${b.name}</b> lays ${b.eggs.map(c => EGG_COLORS[c].label.toLowerCase()).join(" or ")}<br>${b.blurb}</div>
       ${lockedLv(k) ? `<button class="buy" disabled>🔒 Lv ${UNLOCK[k]}</button>` : `<button class="buy" ${S.coins < b.price ? "disabled" : ""} onclick="buyHen('${k}')">${b.price ? b.price + "🪙" : "Free"}</button>`}</div>`).join("")
-      + `<p style="margin-top:10px"><b>🐓 Roosters</b> (max 1 · guards the flock · needed for chicks)</p>` + Object.entries(ROOS).map(([k, r]) => `<div class="row">${henSVG("roo:" + k)}<div class="t"><b>${r.name}</b> <span class="gstat">📢${stars(r.guard.alarm)} 💪${stars(r.guard.fight)}</span><br>${r.blurb}</div>
-      ${lockedLv("roo:" + k) ? `<button class="buy" disabled>🔒 Lv ${UNLOCK["roo:" + k]}</button>` : `<button class="buy" ${S.coins < r.price || S.rooster ? "disabled" : ""} onclick="buyRooster('${k}')">${S.rooster && S.rooster.breed === k ? "Owned" : r.price + "🪙"}</button>`}</div>`).join("")
+      + `<p style="margin-top:10px"><b>🐓 Roosters</b> (max 1 · needs 5+ hens · guards the flock · needed for chicks)</p>` + Object.entries(ROOS).map(([k, r]) => `<div class="row">${henSVG("roo:" + k)}<div class="t"><b>${r.name}</b> <span class="gstat">📢${stars(r.guard.alarm)} 💪${stars(r.guard.fight)}</span><br>${r.blurb}</div>
+      ${lockedLv("roo:" + k) ? `<button class="buy" disabled>🔒 Lv ${UNLOCK["roo:" + k]}</button>` : !S.rooster && S.hens.length < 5 ? `<button class="buy" disabled>🐔 5 hens first</button>` : `<button class="buy" ${S.coins < r.price || S.rooster ? "disabled" : ""} onclick="buyRooster('${k}')">${S.rooster && S.rooster.breed === k ? "Owned" : r.price + "🪙"}</button>`}</div>`).join("")
       + `<p style="font-size:12px">📢 = spots danger and sounds the alarm · 💪 = fights off predators</p>`
       + Object.values(SPECIES).filter(s => s.comingSoon).map(s => `<div class="row" style="opacity:.6"><span style="font-size:36px">${s.icon}</span><div class="t"><b>${s.name} 🔒</b><br>${s.teaser}</div></div>`).join("");
   } else if (shopTab === "coop") {
@@ -1632,7 +1701,7 @@ function buildFX(tl) { const t = $("#grid").children[tl], art = t && t.querySele
   const p = tilePos(tl), w = [8, 25, 25][S.coopLvl], h = [8, 8, 25][S.coopLvl]; beep("lvl");
   for (let k = 0; k < 12; k++) setTimeout(() => particle(k % 3 ? "💨" : "✨", p.x + Math.random() * w, p.y + h * 0.6 + Math.random() * h * 0.5, 2), k * 60);
   recenter(); }
-window.buyRooster = k => { const r = ROOS[k]; if (S.rooster) return toast("One rooster is plenty. Trust the neighbors on this.");
+window.buyRooster = k => { const r = ROOS[k]; if (S.rooster) return toast("One rooster is plenty. Trust the neighbors on this."); if (S.hens.length < 5) return toast("🐔 Get to 5 hens first, or he'll wear the girls out.");
   if (S.coins < r.price) return toast("Not enough coins. Sell some eggs!");
   if (lockedLv("roo:" + k)) return; S.coins -= r.price; coinPop(-r.price); S.rooster = { name: { ayam: "Vlad", leghorn: "Kevin", barnyard: "Rocky" }[k], breed: k, x: 45, y: 45, flip: false }; closeModal(); toast(`Welcome, ${S.rooster.name} the ${r.name}!`);
   say(`I got a rooster named ${S.rooster.name}. He is VERY confident. <i>Fact: ${ROO_FACT} From now on your eggs are fertile. Same-breed pairs hatch purebred chicks; other pairs hatch mixes.</i>`, 1); renderAll(); wander(); };
@@ -1834,8 +1903,8 @@ function title() {
    ${sv && sv.hens ? `<button class="buy big cta" onclick="continueGame()">▶️ Continue${sv.player ? " as " + esc(sv.player) : ""} <small>Day ${sv.day}</small></button>
    <button class="act big newfarm" onclick="resetGame('title')">🌱 New farm</button>` : `<div class="intro"><div class="guyMini">${guySVG}</div><p class="say"><b>Charlie:</b> Hi, I'm Charlie, your neighbor. I just got chickens too and I have NO idea what I'm doing. What's your name?</p></div>
    <div class="namerow"><input id="playerIn" maxlength="24" placeholder="Your farmer name (optional)" enterkeyhint="done" autocomplete="given-name"></div>
-   <h3>Pick your first hen</h3>
-   ${["leghorn", "barred"].map(k => `<button class="henpick" onclick="start('${k}')">${henSVG(k)}<span class="t"><b>${CH[k].name}</b><small>${CH[k].blurb}</small></span><span class="go">Adopt</span></button>`).join("")}`}
+   <h3>Pick your starter flock</h3><p class="hint trio">Hens hate being alone, so they come in threes.</p>
+   ${["leghorn", "barred"].map(k => `<button class="henpick" onclick="start('${k}')">${henSVG(k)}<span class="t"><b>${CH[k].name}</b><small>${CH[k].blurb}</small></span><span class="go">Adopt 3</span></button>`).join("")}`}
    <button class="pill fbpill" onclick="feedback()">💬 Send feedback</button>
    <p class="foot">${realSeason()[0]} ${realSeason()[1]}${HOL ? " · " + HOL.name : ""} · <span class="ver">${BUILD}</span></p></div>`);
   audioBtns();
@@ -1859,7 +1928,7 @@ const demo = new URLSearchParams(location.search).get("demo");
 fresh("leghorn"); renderTools();
 if (!demo) { renderAll(); say("Welcome to Coup City! It's like Coop City, but the chickens are in charge. <i>Tip: a coop is the house where chickens sleep and lay eggs.</i>"); title(); startLoop(); }
 else {
-  demoMode = true; S.started = true; S.coins = 48; S.day = 4; S.speed = 0; S.player = "Bill"; S.tut = 99; S.lvl = 3; S.xp = 22;
+  demoMode = true; S.started = true; S.coins = 48; S.day = 4; S.speed = 0; S.player = "Sam"; S.tut = 99; S.lvl = 3; S.xp = 22;
   const put = (t, i) => S.grid[T6(i)] = { type: t, lvl: t === "feeder" ? 70 : t === "waterer" ? 45 : 100 };
   S.grid = Array(N).fill(null); put("coop", 7); put("nest", 9); put("feeder", 13); put("waterer", 14); put("tree", 10);
   [19,20,21,25,26,27].forEach(i => put("run", i)); [0,1,2,3,4,5,6,12,18,24,30,36,37,38,39].forEach(i => put("fence", i));
@@ -1909,5 +1978,5 @@ else {
   if (/^(yard|hawk|predator|night|barn|scraps|bucket)$/.test(demo)) { clearInterval(wtimer); wtimer = setInterval(wanderTick, 400); }
 }
 // test hooks (read-only debugging)
-window.__cc = { get S() { return S; }, toss: i => tossScrap(i), tray: () => scrapTray(), fill: (n, m) => fillBucket(n, m || "dinner"), frenzy: () => [...frenzies].map(f => ({ k: f.k, ph: f.ph, x: +f.x.toFixed(1), y: +f.y.toFixed(1), cm: f.car && [+mOf(f.car).x.toFixed(1), +mOf(f.car).y.toFixed(1)], hm: f.hens.map(h => [+mOf(h).x.toFixed(0), +mOf(h).y.toFixed(0)]), steals: f.steals, hens: f.hens.length, car: f.car && f.car.name })), musicNode: () => master, pan, dayThreat, nightThreat, mkCode, readCode, farmSnap, frameLog: () => frameLog, SAVE_KEY, audio: () => ({ state: AC && AC.state, musicOn, soundOn, tracks: Object.fromEntries(Object.entries(TRACKS).map(([k, T]) => [k, { loaded: !!T.buf, err: T.err, playing: !!T.src0, gain: T.gain && +T.gain.gain.value.toFixed(2), dur: T.buf && +T.buf.duration.toFixed(2) }])) }) };
+window.__cc = { get S() { return S; }, tracks: () => Object.fromEntries(Object.entries(TRACKS).map(([k, T]) => [k, { src: T.src, s: T.s, a: T.a, b: T.b }])), mus: () => ({ pick: musicPick, on: musicOn, curDay, auto: autoTrack(), playing: Object.keys(TRACKS).filter(k => TRACKS[k].src0), want: Object.keys(TRACKS).filter(k => TRACKS[k].want), loaded: Object.keys(TRACKS).filter(k => TRACKS[k].bytes || TRACKS[k].loading), ac: AC && AC.state, t: AC && AC.currentTime, t0: Object.fromEntries(Object.entries(TRACKS).map(([k, T]) => [k, T.t0])), g: Object.fromEntries(Object.entries(TRACKS).map(([k, T]) => [k, T.gain ? +T.gain.gain.value.toFixed(2) : null])) }), auto: d => autoTrack(new Date(d)), setMusDate: d => { musDate = d ? new Date(d) : null; }, get DUSK() { return DUSK; }, duskHour, night: k => nightThreat(k), toss: i => tossScrap(i), tray: () => scrapTray(), fill: (n, m) => fillBucket(n, m || "dinner"), frenzy: () => [...frenzies].map(f => ({ k: f.k, ph: f.ph, x: +f.x.toFixed(1), y: +f.y.toFixed(1), cm: f.car && [+mOf(f.car).x.toFixed(1), +mOf(f.car).y.toFixed(1)], hm: f.hens.map(h => [+mOf(h).x.toFixed(0), +mOf(h).y.toFixed(0)]), steals: f.steals, hens: f.hens.length, car: f.car && f.car.name })), musicNode: () => master, pan, dayThreat, nightThreat, mkCode, readCode, farmSnap, frameLog: () => frameLog, SAVE_KEY, audio: () => ({ state: AC && AC.state, musicOn, soundOn, tracks: Object.fromEntries(Object.entries(TRACKS).map(([k, T]) => [k, { loaded: !!T.buf, err: T.err, playing: !!T.src0, gain: T.gain && +T.gain.gain.value.toFixed(2), dur: T.buf && +T.buf.duration.toFixed(2) }])) }) };
 })();

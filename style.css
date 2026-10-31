@@ -635,3 +635,14 @@ body:has(#modal:not(.hidden)) #toast{display:-webkit-box;-webkit-box-orient:vert
 .resetsum{display:flex;gap:10px;align-items:flex-end;margin:6px 0 10px}
 .resetsum p{flex:1;background:#fff;border-radius:16px;padding:10px 12px;margin:0;box-shadow:0 2px 0 rgba(120,80,30,.12)}
 #resetYes,#resetNo{min-height:48px}
+/* build 13: readable top bar (12px labels) */
+.chip .v small,#hud .chip .v small,#dqBtn small,#flockChip small,#dayLbl{font-size:12px;letter-spacing:0}
+#nextLbl{font-size:12px}
+.title .hint.trio{margin:-4px 0 8px;font-size:13px;color:var(--ink2,#6b4b2a)}
+/* build 13: music picker */
+.mpick{margin:8px 0 4px}.mpick h3{margin:6px 0}
+.mopt{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:6px 12px;margin:0 0 6px;border:2px solid #ead7ad;border-radius:14px;background:#fffaf0;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.mopt .dot{flex:0 0 22px;height:22px;border-radius:50%;border:2px solid #b08a4a;background:#fff;box-sizing:border-box}
+.mopt.on{border-color:#f0a020;background:#fff3d6}.mopt.on .dot{background:radial-gradient(#f08a00 45%,#fff 50%)}
+.mopt .st{display:flex;flex-direction:column}.mopt small{font-size:12px;opacity:.75}
+.nowp{font-size:13px;font-weight:700;margin:2px 0 4px;color:#6b4b2a}
